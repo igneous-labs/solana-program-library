@@ -9,7 +9,7 @@ use {
     },
 };
 
-/// Maximum precision: max value for Fee's denominator
+/// Maximum precision: max value for Fee's denominator, must be < sqrt(u64::MAX)
 pub const MAX_FEE_PRECISION: u64 = 1_000_000_000;
 
 /// Fee rate as a ratio, minted on `UpdateStakePoolBalance` as a proportion of
@@ -33,6 +33,14 @@ impl Fee {
         };
         res.check()?;
         Ok(res)
+    }
+
+    /// Creates a new Fee struct that represents 0 fees
+    pub fn zero() -> Self {
+        Self {
+            numerator: 0,
+            denominator: 1,
+        }
     }
 
     /// Checks if this Fee struct is valid.

@@ -710,7 +710,7 @@ mod test {
     #[test]
     fn specific_fee_calculation() {
         // 10% of 10 SOL in rewards should be 1 SOL in fees
-        let fee = Fee::try_new(numerator, denominator).unwrap();
+        let fee = Fee::try_new(10, 100).unwrap();
         let mut stake_pool = StakePool {
             total_stake_lamports: 100 * LAMPORTS_PER_SOL,
             pool_token_supply: 100 * LAMPORTS_PER_SOL,
@@ -735,7 +735,7 @@ mod test {
             (numerator, denominator) in fee(),
             (total_stake_lamports, reward_lamports) in total_stake_and_rewards(),
         ) {
-            let fee = Fee::try_new(numerator, denominator).unwrap();;
+            let fee = Fee::try_new(numerator, denominator).unwrap();
             let mut stake_pool = StakePool {
                 total_stake_lamports,
                 pool_token_supply: total_stake_lamports,
@@ -748,7 +748,7 @@ mod test {
             stake_pool.pool_token_supply += pool_token_fee;
 
             let fee_lamports = stake_pool.calc_lamports_withdraw_amount(pool_token_fee).unwrap();
-            let max_fee_lamports = u64::try_from((reward_lamports as u128) * (fee.numerator as u128) / (fee.denominator as u128)).unwrap();
+            let max_fee_lamports = fee.apply(reward_lamports);
             assert!(max_fee_lamports >= fee_lamports,
                 "Max possible fee must always be greater than or equal to what is actually withdrawn, max {} actual {}",
                 max_fee_lamports,
