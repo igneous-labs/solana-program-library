@@ -4,10 +4,11 @@
 
 use {
     crate::{
+        fee::Fee,
         find_deposit_authority_program_address, find_stake_program_address,
         find_transient_stake_program_address, find_withdraw_authority_program_address,
         stake_program,
-        state::{Fee, StakePool, ValidatorList},
+        state::{StakePool, ValidatorList},
         MAX_VALIDATORS_TO_UPDATE,
     },
     borsh::{BorshDeserialize, BorshSchema, BorshSerialize},

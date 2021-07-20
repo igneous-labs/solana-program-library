@@ -11,10 +11,7 @@ use {
         signature::{Keypair, Signer},
         transaction::{Transaction, TransactionError},
     },
-    spl_stake_pool::{
-        error, id, instruction,
-        state::{Fee, StakePool},
-    },
+    spl_stake_pool::{error, fee::Fee, id, instruction, state::StakePool},
 };
 
 async fn setup() -> (ProgramTestContext, StakePoolAccounts, Fee) {
@@ -29,10 +26,7 @@ async fn setup() -> (ProgramTestContext, StakePoolAccounts, Fee) {
         )
         .await
         .unwrap();
-    let new_fee = Fee {
-        numerator: 10,
-        denominator: 10,
-    };
+    let new_fee = Fee::try_new(10, 10).unwrap();
 
     (context, stake_pool_accounts, new_fee)
 }
@@ -139,10 +133,11 @@ async fn fail_wrong_manager() {
 async fn fail_bad_fee() {
     let (mut context, stake_pool_accounts, _new_fee) = setup().await;
 
-    let new_fee = Fee {
-        numerator: 11,
-        denominator: 10,
-    };
+    let mut new_fee = Fee::try_new(1, 1).unwrap();
+    let fee_ptr = &mut new_fee as *mut Fee;
+    unsafe {
+        make_unsafe_fee(fee_ptr, 11, 10);
+    }
     let transaction = Transaction::new_signed_with_payer(
         &[instruction::set_fee(
             &id(),
@@ -184,10 +179,7 @@ async fn fail_not_updated() {
         )
         .await
         .unwrap();
-    let new_fee = Fee {
-        numerator: 10,
-        denominator: 100,
-    };
+    let new_fee = Fee::try_new(10, 100).unwrap();
 
     // move forward so an update is required
     context.warp_to_slot(50_000).unwrap();

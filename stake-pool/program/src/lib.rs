@@ -4,6 +4,7 @@
 
 pub mod big_vec;
 pub mod error;
+pub mod fee;
 pub mod instruction;
 pub mod processor;
 pub mod stake_program;

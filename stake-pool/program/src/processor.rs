@@ -3,11 +3,12 @@
 use {
     crate::{
         error::StakePoolError,
+        fee::Fee,
         find_deposit_authority_program_address,
         instruction::{PreferredValidatorType, StakePoolInstruction},
         minimum_reserve_lamports, minimum_stake_lamports, stake_program,
         state::{
-            AccountType, Fee, StakePool, StakeStatus, ValidatorList, ValidatorListHeader,
+            AccountType, StakePool, StakeStatus, ValidatorList, ValidatorListHeader,
             ValidatorStakeInfo,
         },
         AUTHORITY_DEPOSIT, AUTHORITY_WITHDRAW, MINIMUM_ACTIVE_STAKE, TRANSIENT_STAKE_SEED,
@@ -515,10 +516,7 @@ impl Processor {
             return Err(ProgramError::AccountNotRentExempt);
         }
 
-        // Numerator should be smaller than or equal to denominator (fee <= 1)
-        if fee.numerator > fee.denominator {
-            return Err(StakePoolError::FeeTooHigh.into());
-        }
+        fee.check()?;
 
         if manager_fee_info.owner != token_program_info.key {
             return Err(ProgramError::IncorrectProgramId);
@@ -2128,15 +2126,7 @@ impl Processor {
             return Err(StakePoolError::StakeListAndPoolOutOfDate.into());
         }
 
-        // Numerator should be smaller than or equal to denominator (fee <= 1)
-        if fee.numerator > fee.denominator {
-            msg!(
-                "Fee greater than 100%, numerator {}, denominator {}",
-                fee.numerator,
-                fee.denominator
-            );
-            return Err(StakePoolError::FeeTooHigh.into());
-        }
+        fee.check()?;
 
         stake_pool.next_epoch_fee = Some(fee);
         stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
@@ -2288,6 +2278,7 @@ impl PrintProgramError for StakePoolError {
             StakePoolError::IncorrectDepositVoteAddress => msg!("Error: The provided deposit stake account is not delegated to the preferred deposit vote account"),
             StakePoolError::IncorrectWithdrawVoteAddress => msg!("Error: The provided withdraw stake account is not the preferred deposit vote account"),
             StakePoolError::InvalidMintFreezeAuthority => msg!("Error: The mint has an invalid freeze authority"),
+            StakePoolError::InvalidFeeDenominator => msg!("Error: The provided fee's denominator is either too high or 0"),
         }
     }
 }

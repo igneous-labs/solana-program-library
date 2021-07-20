@@ -20,7 +20,7 @@ use {
         vote_state::{VoteInit, VoteState},
     },
     spl_stake_pool::{
-        find_stake_program_address, find_transient_stake_program_address, id, instruction,
+        fee, find_stake_program_address, find_transient_stake_program_address, id, instruction,
         processor, stake_program, state,
     },
 };
@@ -241,7 +241,7 @@ pub async fn create_stake_pool(
     manager: &Keypair,
     staker: &Pubkey,
     deposit_authority: &Option<Keypair>,
-    fee: &state::Fee,
+    fee: &fee::Fee,
     max_validators: u32,
 ) -> Result<(), TransportError> {
     let rent = banks_client.get_rent().await.unwrap();
@@ -516,7 +516,7 @@ pub struct StakePoolAccounts {
     pub withdraw_authority: Pubkey,
     pub deposit_authority: Pubkey,
     pub deposit_authority_keypair: Option<Keypair>,
-    pub fee: state::Fee,
+    pub fee: fee::Fee,
     pub max_validators: u32,
 }
 
@@ -550,10 +550,7 @@ impl StakePoolAccounts {
             withdraw_authority,
             deposit_authority,
             deposit_authority_keypair: None,
-            fee: state::Fee {
-                numerator: 1,
-                denominator: 100,
-            },
+            fee: fee::Fee::try_new(1, 100).unwrap(),
             max_validators: MAX_TEST_VALIDATORS,
         }
     }
@@ -566,7 +563,7 @@ impl StakePoolAccounts {
     }
 
     pub fn calculate_fee(&self, amount: u64) -> u64 {
-        amount * self.fee.numerator / self.fee.denominator
+        self.fee.apply(amount)
     }
 
     pub async fn initialize_stake_pool(
@@ -1185,4 +1182,11 @@ pub async fn get_validator_list_sum(
     let rent = banks_client.get_rent().await.unwrap();
     let rent = rent.minimum_balance(std::mem::size_of::<stake_program::StakeState>());
     validator_sum + reserve_stake.lamports - rent - 1
+}
+
+pub unsafe fn make_unsafe_fee(fee_ptr: *mut fee::Fee, numerator: u64, denominator: u64) {
+    let num_ptr = fee_ptr as *mut u64;
+    *num_ptr = numerator;
+    let denom_ptr = num_ptr.offset(1);
+    *denom_ptr = denominator;
 }

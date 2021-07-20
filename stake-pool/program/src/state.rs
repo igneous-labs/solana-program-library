@@ -1,7 +1,7 @@
 //! State transition types
 
 use {
-    crate::{big_vec::BigVec, error::StakePoolError, stake_program::Lockup},
+    crate::{big_vec::BigVec, error::StakePoolError, fee::Fee, stake_program::Lockup},
     borsh::{BorshDeserialize, BorshSchema, BorshSerialize},
     num_derive::FromPrimitive,
     num_traits::FromPrimitive,
@@ -133,14 +133,12 @@ impl StakePool {
     /// This function assumes that `reward_lamports` has not already been added
     /// to the stake pool's `total_stake_lamports`
     pub fn calc_fee_amount(&self, reward_lamports: u64) -> Option<u64> {
-        if self.fee.denominator == 0 || reward_lamports == 0 {
+        if reward_lamports == 0 {
             return Some(0);
         }
         let total_stake_lamports =
             (self.total_stake_lamports as u128).checked_add(reward_lamports as u128)?;
-        let fee_lamports = (reward_lamports as u128)
-            .checked_mul(self.fee.numerator as u128)?
-            .checked_div(self.fee.denominator as u128)?;
+        let fee_lamports = self.fee.apply(reward_lamports) as u128;
         u64::try_from(
             (self.pool_token_supply as u128)
                 .checked_mul(fee_lamports)?
@@ -523,17 +521,6 @@ impl ValidatorListHeader {
     }
 }
 
-/// Fee rate as a ratio, minted on `UpdateStakePoolBalance` as a proportion of
-/// the rewards
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Default, PartialEq, BorshSerialize, BorshDeserialize, BorshSchema)]
-pub struct Fee {
-    /// denominator of the fee ratio
-    pub denominator: u64,
-    /// numerator of the fee ratio
-    pub numerator: u64,
-}
-
 #[cfg(test)]
 mod test {
     use {
@@ -723,10 +710,7 @@ mod test {
     #[test]
     fn specific_fee_calculation() {
         // 10% of 10 SOL in rewards should be 1 SOL in fees
-        let fee = Fee {
-            numerator: 1,
-            denominator: 10,
-        };
+        let fee = Fee::try_new(numerator, denominator).unwrap();
         let mut stake_pool = StakePool {
             total_stake_lamports: 100 * LAMPORTS_PER_SOL,
             pool_token_supply: 100 * LAMPORTS_PER_SOL,
@@ -751,7 +735,7 @@ mod test {
             (numerator, denominator) in fee(),
             (total_stake_lamports, reward_lamports) in total_stake_and_rewards(),
         ) {
-            let fee = Fee { denominator, numerator };
+            let fee = Fee::try_new(numerator, denominator).unwrap();;
             let mut stake_pool = StakePool {
                 total_stake_lamports,
                 pool_token_supply: total_stake_lamports,

@@ -18,7 +18,7 @@ use {
         instruction::InstructionError, signature::Keypair, signature::Signer,
         transaction::Transaction, transaction::TransactionError, transport::TransportError,
     },
-    spl_stake_pool::{error, id, instruction, stake_program, state},
+    spl_stake_pool::{error, fee, id, instruction, stake_program, state},
 };
 
 async fn create_required_accounts(
@@ -154,10 +154,11 @@ async fn fail_with_already_initialized_validator_list() {
 async fn fail_with_high_fee() {
     let (mut banks_client, payer, recent_blockhash) = program_test().start().await;
     let mut stake_pool_accounts = StakePoolAccounts::new();
-    stake_pool_accounts.fee = state::Fee {
-        numerator: 100001,
-        denominator: 100000,
-    };
+    // use unsafe to modify fee s.t. numerator > denominator
+    let fee_ptr = &mut stake_pool_accounts.fee as *mut fee::Fee;
+    unsafe {
+        make_unsafe_fee(fee_ptr, 100001, 100000);
+    }
 
     let transaction_error = stake_pool_accounts
         .initialize_stake_pool(&mut banks_client, &payer, &recent_blockhash, 1)
