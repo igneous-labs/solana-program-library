@@ -5,7 +5,7 @@ use {
     borsh::{BorshDeserialize, BorshSchema, BorshSerialize},
     std::{
         cmp::{max, Ordering},
-        ops,
+        fmt, ops,
     },
 };
 
@@ -116,12 +116,18 @@ impl ops::Mul for Fee {
             // division safety: divisor > 0
             // Note: results in loss of precison for numerator if not divisible by divisor
             // or numerator -> 0 if numerator < divisor
-            numerator = numerator / divisor;
-            denominator = denominator / divisor;
+            numerator /= divisor;
+            denominator /= divisor;
         }
         Self {
             numerator,
             denominator,
         }
+    }
+}
+
+impl fmt::Display for Fee {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.numerator, self.denominator)
     }
 }

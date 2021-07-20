@@ -34,11 +34,13 @@ use {
     },
     spl_associated_token_account::{create_associated_token_account, get_associated_token_address},
     spl_stake_pool::{
-        self, find_stake_program_address, find_transient_stake_program_address,
+        self,
+        fee::Fee,
+        find_stake_program_address, find_transient_stake_program_address,
         find_withdraw_authority_program_address,
         instruction::PreferredValidatorType,
         stake_program::{self, StakeState},
-        state::{Fee, StakePool, ValidatorList},
+        state::{StakePool, ValidatorList},
     },
     std::{process::exit, sync::Arc},
 };
@@ -83,6 +85,13 @@ fn check_fee_payer_balance(config: &Config, required_balance: u64) -> Result<(),
     } else {
         Ok(())
     }
+}
+
+fn create_fee_or_exit(numerator: u64, denominator: u64) -> Fee {
+    Fee::try_new(numerator, denominator).unwrap_or_else(|e| {
+        eprintln!("invalid fee: {}", e);
+        exit(1);
+    })
 }
 
 fn get_signer(
@@ -715,11 +724,8 @@ fn command_list(config: &Config, stake_pool_address: &Pubkey) -> CommandResult {
             preferred_withdraw_validator
         );
     }
-    if stake_pool.fee.numerator > 0 {
-        println!(
-            "Fee: {}/{} of epoch rewards",
-            stake_pool.fee.numerator, stake_pool.fee.denominator
-        );
+    if stake_pool.fee > Fee::zero() {
+        println!("Fee: {} of epoch rewards", stake_pool.fee);
     } else {
         println!("Fee: none");
     }
@@ -1822,10 +1828,7 @@ fn main() {
             command_create_pool(
                 &config,
                 deposit_authority,
-                Fee {
-                    denominator,
-                    numerator,
-                },
+                create_fee_or_exit(numerator, denominator),
                 max_validators,
                 pool_keypair,
                 mint_keypair,
@@ -1936,10 +1939,7 @@ fn main() {
             let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
             let numerator = value_t_or_exit!(arg_matches, "fee_numerator", u64);
             let denominator = value_t_or_exit!(arg_matches, "fee_denominator", u64);
-            let new_fee = Fee {
-                denominator,
-                numerator,
-            };
+            let new_fee = create_fee_or_exit(numerator, denominator);
             command_set_fee(&config, &stake_pool_address, new_fee)
         }
         _ => unreachable!(),
