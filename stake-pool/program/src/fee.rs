@@ -112,7 +112,8 @@ impl ops::Mul for Fee {
         let mut denominator = self.denominator * rhs.denominator;
         if denominator > MAX_FEE_PRECISION {
             // divison safety: MAX_FEE_PRECISION > 0
-            let divisor = max(2, denominator / MAX_FEE_PRECISION);
+            // addition overflow safety: both < u64::MAX/2, > 1
+            let divisor = max(2, (denominator + MAX_FEE_PRECISION - 1) / MAX_FEE_PRECISION);
             // division safety: divisor > 0
             // Note: results in loss of precison for numerator if not divisible by divisor
             // or numerator -> 0 if numerator < divisor
