@@ -1871,11 +1871,17 @@ impl Processor {
         let new_pool_tokens = stake_pool
             .calc_pool_tokens_for_deposit(all_deposit_lamports)
             .ok_or(StakePoolError::CalculationFailure)?;
-        let pool_tokens_fee = stake_pool
+        let pool_tokens_deposit_fee = stake_pool
             .calc_pool_tokens_deposit_fee(new_pool_tokens)
             .ok_or(StakePoolError::CalculationFailure)?;
         let pool_tokens_user = new_pool_tokens
-            .checked_sub(pool_tokens_fee)
+            .checked_sub(pool_tokens_deposit_fee)
+            .ok_or(StakePoolError::CalculationFailure)?;
+        let pool_tokens_referral_fee = stake_pool
+            .calc_pool_tokens_referral_fee(pool_tokens_deposit_fee)
+            .ok_or(StakePoolError::CalculationFailure)?;
+        let pool_tokens_manager_deposit_fee = pool_tokens_deposit_fee
+            .checked_sub(pool_tokens_deposit_fee)
             .ok_or(StakePoolError::CalculationFailure)?;
 
         let pool_tokens_stake_deposit_fee = stake_pool
@@ -1939,7 +1945,7 @@ impl Processor {
             )?;
         }
 
-        if pool_tokens_fee > 0 {
+        if pool_tokens_manager_deposit_fee > 0 {
             Self::token_mint_to(
                 stake_pool_info.key,
                 token_program_info.clone(),
@@ -1948,10 +1954,21 @@ impl Processor {
                 withdraw_authority_info.clone(),
                 AUTHORITY_WITHDRAW,
                 stake_pool.withdraw_bump_seed,
-                pool_tokens_fee,
+                pool_tokens_manager_deposit_fee,
             )?;
+        }
 
-            // TODO: CHECK referrer_info IS A VALID POOL TOKEN ACCOUNT AND AWARD REFERRER FEES IF SO
+        if pool_tokens_referral_fee > 0 {
+            Self::token_mint_to(
+                stake_pool_info.key,
+                token_program_info.clone(),
+                pool_mint_info.clone(),
+                referrer_fee_info.clone(),
+                withdraw_authority_info.clone(),
+                AUTHORITY_WITHDRAW,
+                stake_pool.withdraw_bump_seed,
+                pool_tokens_referral_fee,
+            )?;
         }
 
         // withdraw additional lamports to the reserve
