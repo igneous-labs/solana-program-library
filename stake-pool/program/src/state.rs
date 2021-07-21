@@ -120,22 +120,13 @@ pub struct StakePool {
 
     /// Fees paid out to referrers on referred stake deposits.
     /// Expressed as a percentage (0 - 100) of deposit fees.
-    /// i.e. `stake_deposit_fee`% of stake deposited is collected as deposit fees for every deposit
-    /// and `stake_referral_fee`% of the collected stake deposit fees is paid out to the referrer
-    pub stake_referral_fee: u8,
+    /// i.e. `deposit_fee`% of SOL deposited is collected as deposit fees for every deposit
+    /// and `referral_fee`% of the collected deposit fees is paid out to the referrer
+    pub referral_fee: u8,
 
     /// Toggles whether the `DepositSol` instruction requires a signature from
     /// the `deposit_authority`
-    pub sol_deposit_authority: Option<Pubkey>,
-
-    /// Fee assessed on SOL deposits
-    pub sol_deposit_fee: Fee,
-
-    /// Fees paid out to referrers on referred SOL deposits.
-    /// Expressed as a percentage (0 - 100) of SOL deposit fees.
-    /// i.e. `sol_deposit_fee`% of SOL deposited is collected as deposit fees for every deposit
-    /// and `sol_referral_fee`% of the collected SOL deposit fees is paid out to the referrer
-    pub sol_referral_fee: u8,
+    pub require_sol_deposit_authority: bool,
 }
 impl StakePool {
     /// calculate the pool tokens that should be minted for a deposit of `stake_lamports`

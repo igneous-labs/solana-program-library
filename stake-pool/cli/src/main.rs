@@ -158,8 +158,8 @@ fn command_create_pool(
     stake_deposit_authority: Option<Keypair>,
     fee: Fee,
     withdrawal_fee: Fee,
-    stake_deposit_fee: Fee,
-    stake_referral_fee: u8,
+    deposit_fee: Fee,
+    referral_fee: u8,
     max_validators: u32,
     stake_pool_keypair: Option<Keypair>,
     mint_keypair: Option<Keypair>,
@@ -290,8 +290,8 @@ fn command_create_pool(
                 stake_deposit_authority.as_ref().map(|x| x.pubkey()),
                 fee,
                 withdrawal_fee,
-                stake_deposit_fee,
-                stake_referral_fee,
+                deposit_fee,
+                referral_fee,
                 max_validators,
             ),
         ],
@@ -665,7 +665,7 @@ fn command_deposit_stake(
             &stake_pool.reserve_stake,
             &token_receiver,
             &stake_pool.manager_fee_account,
-            &token_receiver, // referrer is set to user for now
+            &stake_pool.manager_fee_account,
             &stake_pool.pool_mint,
             &spl_token::id(),
         )
@@ -681,7 +681,7 @@ fn command_deposit_stake(
             &stake_pool.reserve_stake,
             &token_receiver,
             &stake_pool.manager_fee_account,
-            &token_receiver, // referrer is set to user for now
+            &stake_pool.manager_fee_account,
             &stake_pool.pool_mint,
             &spl_token::id(),
         )
@@ -2281,10 +2281,10 @@ fn main() {
                     denominator: w_denominator.unwrap_or(0),
                 },
                 Fee {
-                    numerator: d_numerator.unwrap_or(0),
-                    denominator: d_denominator.unwrap_or(0),
+                    numerator: 0,
+                    denominator: 0,
                 },
-                referral_fee.unwrap_or(0),
+                0,
                 max_validators,
                 pool_keypair,
                 mint_keypair,
