@@ -201,6 +201,17 @@ impl StakePool {
         .ok()
     }
 
+    /// calculate pool tokens to be deducted from deposit fees as referral fees
+    #[inline]
+    pub fn calc_pool_tokens_referral_fee(&self, deposit_fee: u64) -> Option<u64> {
+        u64::try_from(
+            (deposit_fee as u128)
+                .checked_mul(self.referral_fee as u128)?
+                .checked_div(100u128)?,
+        )
+        .ok()
+    }
+
     /// Calculate the fee in pool tokens that goes to the manager
     ///
     /// This function assumes that `reward_lamports` has not already been added
@@ -381,11 +392,13 @@ impl StakePool {
     }
 
     /// Check if StakePool is actually initialized as a stake pool
+    #[inline]
     pub fn is_valid(&self) -> bool {
         self.account_type == AccountType::StakePool
     }
 
     /// Check if StakePool is currently uninitialized
+    #[inline]
     pub fn is_uninitialized(&self) -> bool {
         self.account_type == AccountType::Uninitialized
     }
