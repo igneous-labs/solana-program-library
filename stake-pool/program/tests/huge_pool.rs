@@ -81,6 +81,7 @@ async fn setup(
         deposit_fee: Fee::default(),
         withdrawal_fee: Fee::default(),
         next_withdrawal_fee: None,
+        referral_fee: 0,
     };
 
     let mut validator_list = ValidatorList::new(max_validators);
@@ -654,7 +655,7 @@ async fn set_preferred() {
 }
 
 #[tokio::test]
-async fn deposit() {
+async fn deposit_stake() {
     let (mut context, stake_pool_accounts, _, vote_pubkey, user, stake_pubkey, pool_account_pubkey) =
         setup(HUGE_POOL_SIZE, HUGE_POOL_SIZE, STAKE_AMOUNT).await;
 
