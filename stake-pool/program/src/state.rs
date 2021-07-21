@@ -159,8 +159,20 @@ impl StakePool {
     }
 
     /// calculate pool tokens to be deducted as deposit fees
+    #[inline]
     pub fn calc_pool_tokens_deposit_fee(&self, pool_tokens_minted: u64) -> Option<u64> {
         u64::try_from(self.deposit_fee.apply(pool_tokens_minted)?).ok()
+    }
+
+    /// calculate pool tokens to be deducted from deposit fees as referral fees
+    #[inline]
+    pub fn calc_pool_tokens_referral_fee(&self, deposit_fee: u64) -> Option<u64> {
+        u64::try_from(
+            (deposit_fee as u128)
+                .checked_mul(self.referral_fee as u128)?
+                .checked_div(100u128)?,
+        )
+        .ok()
     }
 
     /// Calculate the fee in pool tokens that goes to the manager
@@ -234,7 +246,7 @@ impl StakePool {
     }
     /// Checks that the deposit authority is valid
     #[inline]
-    pub(crate) fn check_stake_deposit_authority(
+    pub(crate) fn check_deposit_authority(
         &self,
         stake_deposit_authority: &Pubkey,
     ) -> Result<(), ProgramError> {
@@ -343,11 +355,13 @@ impl StakePool {
     }
 
     /// Check if StakePool is actually initialized as a stake pool
+    #[inline]
     pub fn is_valid(&self) -> bool {
         self.account_type == AccountType::StakePool
     }
 
     /// Check if StakePool is currently uninitialized
+    #[inline]
     pub fn is_uninitialized(&self) -> bool {
         self.account_type == AccountType::Uninitialized
     }
