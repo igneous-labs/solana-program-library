@@ -663,9 +663,9 @@ fn command_deposit_stake(
             &config.staker.pubkey(),
             &validator_stake_account,
             &stake_pool.reserve_stake,
-            &pool_token_receiver_account,
+            &token_receiver,
             &stake_pool.manager_fee_account,
-            &referrer_token_account,
+            &token_receiver, // referrer is set to user for now
             &stake_pool.pool_mint,
             &spl_token::id(),
         )
@@ -679,9 +679,9 @@ fn command_deposit_stake(
             &config.staker.pubkey(),
             &validator_stake_account,
             &stake_pool.reserve_stake,
-            &pool_token_receiver_account,
+            &token_receiver,
             &stake_pool.manager_fee_account,
-            &referrer_token_account,
+            &token_receiver, // referrer is set to user for now
             &stake_pool.pool_mint,
             &spl_token::id(),
         )
@@ -2341,7 +2341,6 @@ fn main() {
             let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
             let stake_account = pubkey_of(arg_matches, "stake_account").unwrap();
             let token_receiver: Option<Pubkey> = pubkey_of(arg_matches, "token_receiver");
-            let referrer: Option<Pubkey> = pubkey_of(arg_matches, "referrer");
             command_deposit_stake(
                 &config,
                 &stake_pool_address,

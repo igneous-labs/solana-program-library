@@ -167,38 +167,9 @@ impl StakePool {
         u64::try_from(self.withdrawal_fee.apply(pool_tokens)?).ok()
     }
 
-    /// calculate pool tokens to be deducted as stake deposit fees
-    #[inline]
-    pub fn calc_pool_tokens_stake_deposit_fee(&self, pool_tokens_minted: u64) -> Option<u64> {
-        u64::try_from(self.stake_deposit_fee.apply(pool_tokens_minted)?).ok()
-    }
-
-    /// calculate pool tokens to be deducted from deposit fees as referral fees
-    #[inline]
-    pub fn calc_pool_tokens_stake_referral_fee(&self, stake_deposit_fee: u64) -> Option<u64> {
-        u64::try_from(
-            (stake_deposit_fee as u128)
-                .checked_mul(self.stake_referral_fee as u128)?
-                .checked_div(100u128)?,
-        )
-        .ok()
-    }
-
-    /// calculate pool tokens to be deducted as SOL deposit fees
-    #[inline]
-    pub fn calc_pool_tokens_sol_deposit_fee(&self, pool_tokens_minted: u64) -> Option<u64> {
-        u64::try_from(self.sol_deposit_fee.apply(pool_tokens_minted)?).ok()
-    }
-
-    /// calculate pool tokens to be deducted from SOL deposit fees as referral fees
-    #[inline]
-    pub fn calc_pool_tokens_sol_referral_fee(&self, sol_deposit_fee: u64) -> Option<u64> {
-        u64::try_from(
-            (sol_deposit_fee as u128)
-                .checked_mul(self.sol_referral_fee as u128)?
-                .checked_div(100u128)?,
-        )
-        .ok()
+    /// calculate pool tokens to be deducted as deposit fees
+    pub fn calc_pool_tokens_deposit_fee(&self, pool_tokens_minted: u64) -> Option<u64> {
+        u64::try_from(self.deposit_fee.apply(pool_tokens_minted)?).ok()
     }
 
     /// Calculate the fee in pool tokens that goes to the manager
