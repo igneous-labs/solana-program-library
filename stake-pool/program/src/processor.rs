@@ -2554,6 +2554,7 @@ impl Processor {
         }
 
         stake_pool.referral_fee = fee;
+        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
         Ok(())
     }
 
