@@ -432,6 +432,9 @@ impl Processor {
         bump_seed: u8,
         amount: u64,
     ) -> Result<(), ProgramError> {
+        if amount == 0 {
+            return Ok(());
+        }
         let me_bytes = stake_pool.to_bytes();
         let authority_signature_seeds = [&me_bytes[..32], authority_type, &[bump_seed]];
         let signers = &[&authority_signature_seeds[..]];
@@ -1871,17 +1874,19 @@ impl Processor {
         let new_pool_tokens = stake_pool
             .calc_pool_tokens_for_deposit(all_deposit_lamports)
             .ok_or(StakePoolError::CalculationFailure)?;
+
         let pool_tokens_deposit_fee = stake_pool
             .calc_pool_tokens_deposit_fee(new_pool_tokens)
             .ok_or(StakePoolError::CalculationFailure)?;
         let pool_tokens_user = new_pool_tokens
             .checked_sub(pool_tokens_deposit_fee)
             .ok_or(StakePoolError::CalculationFailure)?;
+
         let pool_tokens_referral_fee = stake_pool
             .calc_pool_tokens_referral_fee(pool_tokens_deposit_fee)
             .ok_or(StakePoolError::CalculationFailure)?;
         let pool_tokens_manager_deposit_fee = pool_tokens_deposit_fee
-            .checked_sub(pool_tokens_deposit_fee)
+            .checked_sub(pool_tokens_referral_fee)
             .ok_or(StakePoolError::CalculationFailure)?;
 
         let pool_tokens_stake_deposit_fee = stake_pool
