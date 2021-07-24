@@ -838,6 +838,7 @@ impl Processor {
                 stake_lamports,
                 stake.delegation.stake,
             );
+            // );
             return Err(StakePoolError::StakeLamportsNotEqualToMinimum.into());
         }
 

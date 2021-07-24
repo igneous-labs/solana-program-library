@@ -392,13 +392,11 @@ impl StakePool {
     }
 
     /// Check if StakePool is actually initialized as a stake pool
-    #[inline]
     pub fn is_valid(&self) -> bool {
         self.account_type == AccountType::StakePool
     }
 
     /// Check if StakePool is currently uninitialized
-    #[inline]
     pub fn is_uninitialized(&self) -> bool {
         self.account_type == AccountType::Uninitialized
     }

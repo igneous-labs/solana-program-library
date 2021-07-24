@@ -1286,3 +1286,26 @@ pub fn set_sol_deposit_authority(
             .unwrap(),
     }
 }
+
+/// Creates a 'set sol deposit authority' instruction.
+pub fn set_sol_deposit_authority(
+    program_id: &Pubkey,
+    stake_pool: &Pubkey,
+    manager: &Pubkey,
+    new_sol_deposit_authority: Option<&Pubkey>,
+) -> Instruction {
+    let mut accounts = vec![
+        AccountMeta::new(*stake_pool, false),
+        AccountMeta::new_readonly(*manager, true),
+    ];
+    if let Some(auth) = new_sol_deposit_authority {
+        accounts.push(AccountMeta::new_readonly(*auth, false))
+    }
+    Instruction {
+        program_id: *program_id,
+        accounts,
+        data: StakePoolInstruction::SetSolDepositAuthority
+            .try_to_vec()
+            .unwrap(),
+    }
+}
