@@ -155,7 +155,7 @@ fn checked_transaction_with_signers<T: Signers>(
 #[allow(clippy::too_many_arguments)]
 fn command_create_pool(
     config: &Config,
-    stake_deposit_authority: Option<Keypair>,
+    stake_deposit_authority: Option<Pubkey>,
     fee: Fee,
     withdrawal_fee: Fee,
     deposit_fee: Fee,
@@ -287,7 +287,7 @@ fn command_create_pool(
                 &mint_keypair.pubkey(),
                 &pool_fee_account,
                 &spl_token::id(),
-                stake_deposit_authority.as_ref().map(|x| x.pubkey()),
+                stake_deposit_authority,
                 fee,
                 withdrawal_fee,
                 deposit_fee,
@@ -718,11 +718,9 @@ fn command_deposit_sol(
     let amount = native_token::sol_to_lamports(amount);
 
     // Check withdraw_from balance
-    let from_pubkey = from.as_ref().map_or_else(
-        || config.fee_payer.try_pubkey().unwrap(),
-        |keypair| keypair.try_pubkey().unwrap(),
-    );
-    let from_balance = config.rpc_client.get_balance(&from_pubkey)?;
+    let from_balance = config
+        .rpc_client
+        .get_balance(&config.fee_payer.try_pubkey()?)?;
     if from_balance < amount {
         return Err(format!(
             "Not enough SOL to deposit into pool: {}.\nMaximum deposit amount is {} SOL.",
@@ -771,18 +769,14 @@ fn command_deposit_sol(
     let pool_withdraw_authority =
         find_withdraw_authority_program_address(&spl_stake_pool::id(), stake_pool_address).0;
 
-    let mut deposit_instructions = if let Some(sol_deposit_authority) =
-        config.sol_depositor.as_ref()
+    let mut deposit_instructions = if let Some(stake_deposit_authority) = config.depositor.as_ref()
     {
-        let expected_sol_deposit_authority = stake_pool.sol_deposit_authority.ok_or_else(|| {
-            "SOL deposit authority specified in arguments but stake pool has none".to_string()
-        })?;
-        signers.push(sol_deposit_authority.as_ref());
-        if sol_deposit_authority.pubkey() != expected_sol_deposit_authority {
+        signers.push(stake_deposit_authority.as_ref());
+        if stake_deposit_authority.pubkey() != stake_pool.stake_deposit_authority {
             let error = format!(
                 "Invalid deposit authority specified, expected {}, received {}",
-                expected_sol_deposit_authority,
-                sol_deposit_authority.pubkey()
+                stake_pool.stake_deposit_authority,
+                stake_deposit_authority.pubkey()
             );
             return Err(error.into());
         }
@@ -790,7 +784,7 @@ fn command_deposit_sol(
         spl_stake_pool::instruction::deposit_sol_with_authority(
             &spl_stake_pool::id(),
             stake_pool_address,
-            &sol_deposit_authority.pubkey(),
+            &stake_deposit_authority.pubkey(),
             &pool_withdraw_authority,
             &stake_pool.reserve_stake,
             &user_sol_transfer.pubkey(),
@@ -800,6 +794,7 @@ fn command_deposit_sol(
             &stake_pool.pool_mint,
             &spl_token::id(),
             amount,
+            stake_pool.sol_deposit_authority,
         )
     } else {
         spl_stake_pool::instruction::deposit_sol(
@@ -852,7 +847,6 @@ fn command_list(config: &Config, stake_pool_address: &Pubkey) -> CommandResult {
         println!("Manager: {}", stake_pool.manager);
         println!("Staker: {}", stake_pool.staker);
         println!("Depositor: {}", stake_pool.stake_deposit_authority);
-        println!("SOL Deposit Authority: {}", sol_deposit_authority);
         println!("Withdraw Authority: {}", pool_withdraw_authority);
         println!("Pool Token Mint: {}", stake_pool.pool_mint);
         println!("Fee Account: {}", stake_pool.manager_fee_account);
@@ -1606,8 +1600,8 @@ fn main() {
                 Arg::with_name("stake_deposit_authority")
                     .long("stake-deposit-authority")
                     .short("a")
-                    .validator(is_keypair_or_ask_keyword)
-                    .value_name("STAKE_DEPOSIT_AUTHORITY_KEYPAIR")
+                    .validator(is_pubkey)
+                    .value_name("stake_deposit_authority_ADDRESS")
                     .takes_value(true)
                     .help("Deposit authority required to sign all deposits into the stake pool"),
             )
@@ -2257,7 +2251,7 @@ fn main() {
 
     let _ = match matches.subcommand() {
         ("create-pool", Some(arg_matches)) => {
-            let stake_deposit_authority = keypair_of(arg_matches, "stake_deposit_authority");
+            let stake_deposit_authority = pubkey_of(arg_matches, "stake_deposit_authority");
             let numerator = value_t_or_exit!(arg_matches, "fee_numerator", u64);
             let denominator = value_t_or_exit!(arg_matches, "fee_denominator", u64);
             let w_numerator = value_t!(arg_matches, "withdrawal_fee_numerator", u64);

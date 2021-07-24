@@ -32,7 +32,7 @@ use {
     spl_token::state::{Account as SplAccount, AccountState as SplAccountState, Mint},
 };
 
-const HUGE_POOL_SIZE: u32 = 3_950;
+const HUGE_POOL_SIZE: u32 = 3900;
 const ACCOUNT_RENT_EXEMPTION: u64 = 1_000_000_000; // go with something big to be safe
 const STAKE_AMOUNT: u64 = 200_000_000_000;
 const STAKE_ACCOUNT_RENT_EXEMPTION: u64 = 2_282_880;
@@ -82,8 +82,7 @@ async fn setup(
         sol_deposit_fee: Fee::default(),
         withdrawal_fee: Fee::default(),
         next_withdrawal_fee: None,
-        stake_referral_fee: 0,
-        sol_referral_fee: 0,
+        referral_fee: 0,
         sol_deposit_authority: None,
     };
 

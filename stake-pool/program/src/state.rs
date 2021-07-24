@@ -123,10 +123,9 @@ pub struct StakePool {
     /// i.e. `deposit_fee`% of SOL deposited is collected as deposit fees for every deposit
     /// and `referral_fee`% of the collected deposit fees is paid out to the referrer
     pub referral_fee: u8,
-
     /// Toggles whether the `DepositSol` instruction requires a signature from
     /// the `deposit_authority`
-    pub require_sol_deposit_authority: bool,
+    pub sol_deposit_authority: Option<Pubkey>,
 }
 impl StakePool {
     /// calculate the pool tokens that should be minted for a deposit of `stake_lamports`
@@ -246,7 +245,7 @@ impl StakePool {
     }
     /// Checks that the deposit authority is valid
     #[inline]
-    pub(crate) fn check_deposit_authority(
+    pub(crate) fn check_stake_deposit_authority(
         &self,
         stake_deposit_authority: &Pubkey,
     ) -> Result<(), ProgramError> {
@@ -258,17 +257,17 @@ impl StakePool {
     }
 
     /// Checks that the deposit authority is valid
-    /// Does nothing if `sol_deposit_authority` is currently not set
     #[inline]
     pub(crate) fn check_sol_deposit_authority(
         &self,
-        sol_deposit_authority: &AccountInfo,
+        sol_deposit_authority: &Pubkey,
+        is_signer: bool,
     ) -> Result<(), ProgramError> {
         if let Some(auth) = self.sol_deposit_authority {
-            if auth != *sol_deposit_authority.key {
+            if !(auth == *sol_deposit_authority) {
                 return Err(StakePoolError::InvalidSolDepositAuthority.into());
             }
-            if !sol_deposit_authority.is_signer {
+            if !is_signer {
                 msg!("SOL Deposit authority signature missing");
                 return Err(StakePoolError::SignatureMissing.into());
             }
@@ -355,13 +354,11 @@ impl StakePool {
     }
 
     /// Check if StakePool is actually initialized as a stake pool
-    #[inline]
     pub fn is_valid(&self) -> bool {
         self.account_type == AccountType::StakePool
     }
 
     /// Check if StakePool is currently uninitialized
-    #[inline]
     pub fn is_uninitialized(&self) -> bool {
         self.account_type == AccountType::Uninitialized
     }

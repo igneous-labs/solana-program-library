@@ -696,10 +696,65 @@ impl StakePoolAccounts {
         current_staker: &Keypair,
     ) -> Option<TransportError> {
         let mut signers = vec![payer, current_staker];
-        let instructions = if let Some(deposit_authority) = self.deposit_authority_keypair.as_ref()
-        {
-            signers.push(deposit_authority);
-            instruction::deposit_stake_with_authority(
+        let instructions =
+            if let Some(stake_deposit_authority) = self.stake_deposit_authority_keypair.as_ref() {
+                signers.push(stake_deposit_authority);
+                instruction::deposit_stake_with_authority(
+                    &id(),
+                    &self.stake_pool.pubkey(),
+                    &self.validator_list.pubkey(),
+                    &self.stake_deposit_authority,
+                    &self.withdraw_authority,
+                    stake,
+                    &current_staker.pubkey(),
+                    validator_stake_account,
+                    &self.reserve_stake.pubkey(),
+                    pool_account,
+                    &self.pool_fee_account.pubkey(),
+                    &self.pool_fee_account.pubkey(),
+                    &self.pool_mint.pubkey(),
+                    &spl_token::id(),
+                )
+            } else {
+                instruction::deposit_stake(
+                    &id(),
+                    &self.stake_pool.pubkey(),
+                    &self.validator_list.pubkey(),
+                    &self.withdraw_authority,
+                    stake,
+                    &current_staker.pubkey(),
+                    validator_stake_account,
+                    &self.reserve_stake.pubkey(),
+                    pool_account,
+                    &self.pool_fee_account.pubkey(),
+                    &self.pool_fee_account.pubkey(),
+                    &self.pool_mint.pubkey(),
+                    &spl_token::id(),
+                )
+            };
+        let transaction = Transaction::new_signed_with_payer(
+            &instructions,
+            Some(&payer.pubkey()),
+            &signers,
+            *recent_blockhash,
+        );
+        banks_client.process_transaction(transaction).await.err()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn deposit_sol(
+        &self,
+        banks_client: &mut BanksClient,
+        payer: &Keypair,
+        recent_blockhash: &Hash,
+        pool_account: &Pubkey,
+        amount: u64,
+        sol_deposit_authority: Option<&Keypair>,
+    ) -> Option<TransportError> {
+        let mut signers = vec![payer];
+        let instructions = if let Some(sol_deposit_authority) = sol_deposit_authority {
+            signers.push(sol_deposit_authority);
+            instruction::deposit_sol_with_authority(
                 &id(),
                 &self.stake_pool.pubkey(),
                 &sol_deposit_authority.pubkey(),
@@ -714,8 +769,9 @@ impl StakePoolAccounts {
                 amount,
             )
         } else {
-            instruction::deposit_stake(
+            instruction::deposit_sol_with_authority(
                 &id(),
+                &self.stake_pool.pubkey(),
                 &self.stake_pool.pubkey(),
                 &self.withdraw_authority,
                 &self.reserve_stake.pubkey(),
@@ -726,6 +782,7 @@ impl StakePoolAccounts {
                 &self.pool_mint.pubkey(),
                 &spl_token::id(),
                 amount,
+                false,
             )
         };
         let transaction = Transaction::new_signed_with_payer(
