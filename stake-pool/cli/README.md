@@ -15,10 +15,10 @@ have a usable keypair, created at the default location using `solana-keygen new`
 Builds the stake pool program and sets up a `solana-test-validator` with some
 new validator vote accounts.
 
-The only input it accepts is a number, for the number of vote accounts to create, e.g.:
+It accepts 2 inputs, a number, for the number of vote accounts to create, and a filename, for saving a list of the created vote accounts' pubkey to, .e.g.:
 
 ```bash
-$ ./setup-local.sh 100
+$ ./setup-local.sh 100 vote_accounts.txt
 ```
 
 #### Important notes on local network
