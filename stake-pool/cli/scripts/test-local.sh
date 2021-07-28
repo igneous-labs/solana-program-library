@@ -2,15 +2,29 @@
 
 # Script to test a local solana-test-validator with the stake pool program
 # Run only after `setup-local.sh` and `setup-stake-pool.sh` has completed
+# 
+# Jank setup for backward compatibility test
+# 1. solana-keygen or deploy the program once to generate a stake-pool-id.json keypair file to use
+#    as a consistent upgradeable program address for the stake pool program
+# 2. Modify solana_program::declare_id!() in lib.rs to stake-pool-id.json's public key
+# 3. Modify setup_validator() in setup-local.sh: 
+#    Remove --bpf-program SPoo1xuN9wGpxNjGnPNbRPtpQ7mHgKM8d9BeFC549Jy ../../../target/deploy/spl_stake_pool.so arg
+#    since that will make it unupgradeable. 
+#    Deploy the program after the solana-test-validator has started to the pubkey in stake-pool-id.json using:
+#    solana program deploy --program-id stake-pool.id.json ../../../target/deploy/spl_stake_pool.so
+# 4. Run setup-local.sh and setup-stake-pool.sh. Test using test-local.sh.
+# 5. Checkout to new updated branch. Recompile the program with cargo build-bpf --manifest-path ../../program/Cargo.toml
+# 6. Redeploy the program to the same address with solana program deploy --program-id stake-pool.id.json ../../../target/deploy/spl_stake_pool.so
+# 7. Run setup-stake-pool.sh and test-local.sh to verify that everything still works
+
+if [ "$#" -ne 2 ]; then
+    echo "Expected 2 args, max_validators and validator_list"
+    exit 0
+fi
 
 cd "$(dirname "$0")"
 max_validators=$1
 validator_list=$2
-
-if [ "$#" -ne 2 ]; then
-    echo "Expected 2 params, max_validators and validator_list"
-    exit 0
-fi
 
 # files
 keys_dir=keys

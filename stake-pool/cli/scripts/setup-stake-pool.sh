@@ -2,6 +2,11 @@
 
 # Script to setup a stake pool, add new validators from a list
 
+if [ "$#" -ne 2 ]; then
+    echo "Expected 2 args, max_validators and validator_list"
+    exit 0
+fi
+
 cd "$(dirname "$0")"
 max_validators=$1
 validator_list=$2
