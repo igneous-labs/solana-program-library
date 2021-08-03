@@ -2006,6 +2006,10 @@ impl Processor {
         }
         check_system_program(system_program_info.key)?;
 
+        if stake_pool.manager_fee_account != *manager_fee_info.key {
+            return Err(StakePoolError::InvalidFeeAccount.into());
+        }
+
         // We want this to hold to ensure that deposit_sol mints pool tokens
         // at the right price
         if stake_pool.last_update_epoch < clock.epoch {
