@@ -856,6 +856,10 @@ fn command_list(config: &Config, stake_pool_address: &Pubkey) -> CommandResult {
         println!("Withdraw Authority: {}", pool_withdraw_authority);
         println!("Pool Token Mint: {}", stake_pool.pool_mint);
         println!("Fee Account: {}", stake_pool.manager_fee_account);
+        println!("Epoch Fee: {}", stake_pool.fee);
+        println!("Deposit Fee: {}", stake_pool.deposit_fee);
+        println!("Withdrawal Fee: {}", stake_pool.withdrawal_fee);
+        println!("Referral Fee: {}%", stake_pool.referral_fee);
     } else {
         println!("Stake Pool: {}", stake_pool_address);
         println!("Pool Token Mint: {}", stake_pool.pool_mint);
