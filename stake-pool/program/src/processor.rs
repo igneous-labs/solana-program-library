@@ -432,9 +432,6 @@ impl Processor {
         bump_seed: u8,
         amount: u64,
     ) -> Result<(), ProgramError> {
-        if amount == 0 {
-            return Ok(());
-        }
         let me_bytes = stake_pool.to_bytes();
         let authority_signature_seeds = [&me_bytes[..32], authority_type, &[bump_seed]];
         let signers = &[&authority_signature_seeds[..]];
