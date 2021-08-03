@@ -636,7 +636,7 @@ fn command_deposit_stake(
             &mut total_rent_free_balances,
         ));
 
-    let referrer_token_account = referrer_token_account.unwrap_or(pool_token_receiver_account);
+    let referrer_token_account = referrer_token_account.unwrap_or(stake_pool.manager_fee_account);
 
     let pool_withdraw_authority =
         find_withdraw_authority_program_address(&spl_stake_pool::id(), stake_pool_address).0;
@@ -663,9 +663,9 @@ fn command_deposit_stake(
             &config.staker.pubkey(),
             &validator_stake_account,
             &stake_pool.reserve_stake,
-            &token_receiver,
+            &pool_token_receiver_account,
             &stake_pool.manager_fee_account,
-            &stake_pool.manager_fee_account,
+            &referrer_token_account,
             &stake_pool.pool_mint,
             &spl_token::id(),
         )
@@ -679,9 +679,9 @@ fn command_deposit_stake(
             &config.staker.pubkey(),
             &validator_stake_account,
             &stake_pool.reserve_stake,
-            &token_receiver,
+            &pool_token_receiver_account,
             &stake_pool.manager_fee_account,
-            &stake_pool.manager_fee_account,
+            &referrer_token_account,
             &stake_pool.pool_mint,
             &spl_token::id(),
         )
@@ -747,13 +747,6 @@ fn command_deposit_sol(
 
     let mut total_rent_free_balances: u64 = 0;
 
-    // Create the ephemeral SOL account
-    instructions.push(system_instruction::transfer(
-        &from_pubkey,
-        &user_sol_transfer.pubkey(),
-        amount,
-    ));
-
     // Create token account if not specified
     let pool_token_receiver_account =
         pool_token_receiver_account.unwrap_or(add_associated_token_account(
@@ -764,15 +757,18 @@ fn command_deposit_sol(
             &mut total_rent_free_balances,
         ));
 
-    let referrer_token_account = referrer_token_account.unwrap_or(pool_token_receiver_account);
+    let referrer_token_account = referrer_token_account.unwrap_or(stake_pool.manager_fee_account);
 
     let pool_withdraw_authority =
         find_withdraw_authority_program_address(&spl_stake_pool::id(), stake_pool_address).0;
 
     let mut deposit_instructions = if let Some(stake_deposit_authority) = config.depositor.as_ref()
     {
-        signers.push(stake_deposit_authority.as_ref());
-        if stake_deposit_authority.pubkey() != stake_pool.stake_deposit_authority {
+        let expected_sol_deposit_authority = stake_pool.sol_deposit_authority.ok_or_else(|| {
+            "SOL deposit authority specified in arguments but stake pool has none".to_string()
+        })?;
+        signers.push(sol_deposit_authority.as_ref());
+        if sol_deposit_authority.pubkey() != expected_sol_deposit_authority {
             let error = format!(
                 "Invalid deposit authority specified, expected {}, received {}",
                 stake_pool.stake_deposit_authority,
@@ -787,7 +783,7 @@ fn command_deposit_sol(
             &stake_deposit_authority.pubkey(),
             &pool_withdraw_authority,
             &stake_pool.reserve_stake,
-            &user_sol_transfer.pubkey(),
+            &from_pubkey,
             &pool_token_receiver_account,
             &stake_pool.manager_fee_account,
             &referrer_token_account,
@@ -802,7 +798,7 @@ fn command_deposit_sol(
             stake_pool_address,
             &pool_withdraw_authority,
             &stake_pool.reserve_stake,
-            &user_sol_transfer.pubkey(),
+            &from_pubkey,
             &pool_token_receiver_account,
             &stake_pool.manager_fee_account,
             &referrer_token_account,
@@ -1837,7 +1833,7 @@ fn main() {
                     .value_name("ADDRESS")
                     .takes_value(true)
                     .help("Pool token account to receive the referral fees for deposits. \
-                          Defaults to the token receiver."),
+                          Defaults to the pool manager."),
             )
         )
         .subcommand(SubCommand::with_name("deposit-sol")

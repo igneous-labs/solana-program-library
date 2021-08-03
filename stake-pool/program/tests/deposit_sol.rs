@@ -341,7 +341,6 @@ async fn success_with_sol_deposit_authority() {
 
 #[tokio::test]
 async fn fail_without_sol_deposit_authority_signature() {
-    // TODO: this test should work after DepositSol has been refactored with deposit_sol_authority
     let (mut banks_client, payer, recent_blockhash) = program_test().start().await;
     let mut stake_pool_accounts = StakePoolAccounts::new();
     stake_pool_accounts
