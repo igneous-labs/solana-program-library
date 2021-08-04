@@ -18,7 +18,7 @@ use {
         pubkey::{Pubkey, PUBKEY_BYTES},
     },
     std::convert::TryFrom,
-    std::fmt,
+    std::{fmt, matches},
 };
 
 /// Enum representing the account type managed by the program
@@ -739,6 +739,12 @@ impl FeeType {
             return Err(StakePoolError::FeeIncreaseTooHigh);
         }
         Ok(())
+    }
+
+    /// Returns if the contained fee can only be updated earliest on the next epoch
+    #[inline]
+    pub fn can_only_change_next_epoch(&self) -> bool {
+        matches!(self, Self::Withdrawal(_) | Self::Epoch(_))
     }
 }
 
