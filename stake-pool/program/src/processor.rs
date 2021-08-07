@@ -11,7 +11,8 @@ use {
             AccountType, Fee, FeeType, StakePool, StakeStatus, ValidatorList, ValidatorListHeader,
             ValidatorStakeInfo,
         },
-        AUTHORITY_DEPOSIT, AUTHORITY_WITHDRAW, MINIMUM_ACTIVE_STAKE, TRANSIENT_STAKE_SEED,
+        AUTHORITY_DEPOSIT, AUTHORITY_WITHDRAW, MAX_TRANSIENT_STAKES, MINIMUM_ACTIVE_STAKE,
+        TRANSIENT_STAKE_SEED,
     },
     borsh::{BorshDeserialize, BorshSerialize},
     num_traits::FromPrimitive,
@@ -75,13 +76,18 @@ fn check_validator_stake_address(
 fn check_transient_stake_address(
     program_id: &Pubkey,
     stake_pool_address: &Pubkey,
-    stake_account_address: &Pubkey,
+    transient_stake_address: &Pubkey,
     vote_address: &Pubkey,
+    index: u8,
 ) -> Result<u8, ProgramError> {
     // Check stake account address validity
-    let (transient_stake_address, bump_seed) =
-        crate::find_transient_stake_program_address(program_id, vote_address, stake_pool_address);
-    if transient_stake_address != *stake_account_address {
+    let (expected_transient_stake_address, bump_seed) = crate::find_transient_stake_program_address(
+        program_id,
+        vote_address,
+        stake_pool_address,
+        index,
+    );
+    if expected_transient_stake_address != *transient_stake_address {
         Err(StakePoolError::InvalidStakeAccountAddress.into())
     } else {
         Ok(bump_seed)
@@ -874,10 +880,14 @@ impl Processor {
         let new_stake_authority_info = next_account_info(account_info_iter)?;
         let validator_list_info = next_account_info(account_info_iter)?;
         let stake_account_info = next_account_info(account_info_iter)?;
-        let transient_stake_account_info = next_account_info(account_info_iter)?;
         let clock_info = next_account_info(account_info_iter)?;
         let clock = &Clock::from_account_info(clock_info)?;
         let stake_program_info = next_account_info(account_info_iter)?;
+        let transient_stake_account_infos = account_info_iter.as_slice();
+
+        if transient_stake_account_infos.len() != MAX_TRANSIENT_STAKES as usize {
+            return Err(StakePoolError::InvalidStakeAccountAddress.into());
+        }
 
         check_stake_program(stake_program_info.key)?;
         check_account_owner(stake_pool_info, program_id)?;
@@ -916,12 +926,15 @@ impl Processor {
             stake_account_info.key,
             &vote_account_address,
         )?;
-        check_transient_stake_address(
-            program_id,
-            stake_pool_info.key,
-            transient_stake_account_info.key,
-            &vote_account_address,
-        )?;
+        for (i, transient_stake_account_info) in transient_stake_account_infos.iter().enumerate() {
+            check_transient_stake_address(
+                program_id,
+                stake_pool_info.key,
+                transient_stake_account_info.key,
+                &vote_account_address,
+                i as u8,
+            )?;
+        }
 
         let maybe_validator_stake_info = validator_list.find_mut::<ValidatorStakeInfo>(
             vote_account_address.as_ref(),
@@ -956,22 +969,25 @@ impl Processor {
         }
 
         // check that the transient stake account doesn't exist
-        let new_status = if let Ok((_meta, stake)) = get_stake_state(transient_stake_account_info) {
-            if stake.delegation.deactivation_epoch == Epoch::MAX {
-                msg!(
-                    "Transient stake {} activating, can't remove stake {} on validator {}",
-                    transient_stake_account_info.key,
-                    stake_account_info.key,
-                    vote_account_address
-                );
-                return Err(StakePoolError::WrongStakeState.into());
-            } else {
-                // stake is deactivating, mark the entry as such
-                StakeStatus::DeactivatingTransient
+        let new_status = (|| {
+            for transient_stake_account_info in transient_stake_account_infos.iter() {
+                if let Ok((_meta, stake)) = get_stake_state(transient_stake_account_info) {
+                    if stake.delegation.deactivation_epoch == Epoch::MAX {
+                        msg!(
+                            "Transient stake {} activating, can't remove stake {} on validator {}",
+                            transient_stake_account_info.key,
+                            stake_account_info.key,
+                            vote_account_address
+                        );
+                        return Err(StakePoolError::WrongStakeState);
+                    } else {
+                        // at least 1 transient stake is deactivating, mark the entry as such
+                        return Ok(StakeStatus::DeactivatingTransient);
+                    }
+                }
             }
-        } else {
-            StakeStatus::ReadyForRemoval
-        };
+            Ok(StakeStatus::ReadyForRemoval)
+        })()?;
 
         Self::stake_authorize_signed(
             stake_pool_info.key,
@@ -1003,6 +1019,7 @@ impl Processor {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
         lamports: u64,
+        transient_index: u8,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let stake_pool_info = next_account_info(account_info_iter)?;
@@ -1062,11 +1079,13 @@ impl Processor {
             stake_pool_info.key,
             transient_stake_account_info.key,
             &vote_account_address,
+            transient_index,
         )?;
         let transient_stake_account_signer_seeds: &[&[_]] = &[
             TRANSIENT_STAKE_SEED,
             &vote_account_address.to_bytes()[..32],
             &stake_pool_info.key.to_bytes()[..32],
+            &[transient_index],
             &[transient_stake_bump_seed],
         ];
 
@@ -1134,6 +1153,7 @@ impl Processor {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
         lamports: u64,
+        transient_index: u8,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let stake_pool_info = next_account_info(account_info_iter)?;
@@ -1190,11 +1210,13 @@ impl Processor {
             stake_pool_info.key,
             transient_stake_account_info.key,
             vote_account_address,
+            transient_index,
         )?;
         let transient_stake_account_signer_seeds: &[&[_]] = &[
             TRANSIENT_STAKE_SEED,
             &vote_account_address.to_bytes()[..32],
             &stake_pool_info.key.to_bytes()[..32],
+            &[transient_index],
             &[transient_stake_bump_seed],
         ];
 
@@ -1401,6 +1423,7 @@ impl Processor {
                 stake_pool_info.key,
                 transient_stake_info.key,
                 &validator_stake_record.vote_account_address,
+                0,
             )
             .is_err()
             {
@@ -2230,6 +2253,7 @@ impl Processor {
                     stake_pool_info.key,
                     stake_split_from.key,
                     &vote_account_address,
+                    0,
                 )?;
                 true
             };
@@ -2570,13 +2594,29 @@ impl Processor {
                 msg!("Instruction: RemoveValidatorFromPool");
                 Self::process_remove_validator_from_pool(program_id, accounts)
             }
-            StakePoolInstruction::DecreaseValidatorStake(amount) => {
+            StakePoolInstruction::DecreaseValidatorStake {
+                lamports,
+                transient_index,
+            } => {
                 msg!("Instruction: DecreaseValidatorStake");
-                Self::process_decrease_validator_stake(program_id, accounts, amount)
+                Self::process_decrease_validator_stake(
+                    program_id,
+                    accounts,
+                    lamports,
+                    transient_index,
+                )
             }
-            StakePoolInstruction::IncreaseValidatorStake(amount) => {
+            StakePoolInstruction::IncreaseValidatorStake {
+                lamports,
+                transient_index,
+            } => {
                 msg!("Instruction: IncreaseValidatorStake");
-                Self::process_increase_validator_stake(program_id, accounts, amount)
+                Self::process_increase_validator_stake(
+                    program_id,
+                    accounts,
+                    lamports,
+                    transient_index,
+                )
             }
             StakePoolInstruction::SetPreferredValidator {
                 validator_type,

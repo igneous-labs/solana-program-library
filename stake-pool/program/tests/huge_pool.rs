@@ -391,6 +391,7 @@ async fn remove_validator_from_pool() {
         &id(),
         &first_vote,
         &stake_pool_accounts.stake_pool.pubkey(),
+        0,
     );
 
     let new_authority = Pubkey::new_unique();
@@ -417,6 +418,7 @@ async fn remove_validator_from_pool() {
         &id(),
         &middle_vote,
         &stake_pool_accounts.stake_pool.pubkey(),
+        0,
     );
 
     let new_authority = Pubkey::new_unique();
@@ -440,6 +442,7 @@ async fn remove_validator_from_pool() {
         &id(),
         &last_vote,
         &stake_pool_accounts.stake_pool.pubkey(),
+        0,
     );
 
     let new_authority = Pubkey::new_unique();
@@ -582,7 +585,7 @@ async fn add_validator_to_pool() {
     assert_eq!(last_element.vote_account_address, test_vote_address);
 
     let (transient_stake_address, _) =
-        find_transient_stake_program_address(&id(), &test_vote_address, &stake_pool_pubkey);
+        find_transient_stake_program_address(&id(), &test_vote_address, &stake_pool_pubkey, 0);
     let increase_amount = MINIMUM_ACTIVE_STAKE;
     let error = stake_pool_accounts
         .increase_validator_stake(
