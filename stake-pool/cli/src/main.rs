@@ -949,6 +949,7 @@ fn command_list(config: &Config, stake_pool_address: &Pubkey) -> CommandResult {
                 &spl_stake_pool::id(),
                 &validator.vote_account_address,
                 stake_pool_address,
+                0
             );
             println!(
                 "Vote Account: {}\tStake Account: {}\tActive Balance: {}\tTransient Stake Account: {}\tTransient Balance: {}\tLast Update Epoch: {}{}",

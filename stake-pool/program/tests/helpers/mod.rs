@@ -498,7 +498,7 @@ impl ValidatorStakeAccount {
         let vote = Keypair::new();
         let (stake_account, _) = find_stake_program_address(&id(), &vote.pubkey(), stake_pool);
         let (transient_stake_account, _) =
-            find_transient_stake_program_address(&id(), &vote.pubkey(), stake_pool);
+            find_transient_stake_program_address(&id(), &vote.pubkey(), stake_pool, 0);
         ValidatorStakeAccount {
             stake_account,
             transient_stake_account,
