@@ -103,6 +103,7 @@ async fn success() {
             &validator_stake.transient_stake_account,
             &validator_stake.vote.pubkey(),
             increase_amount,
+            0,
         )
         .await;
     assert!(error.is_none());
@@ -160,6 +161,7 @@ async fn fail_with_wrong_withdraw_authority() {
             &validator_stake.transient_stake_account,
             &validator_stake.vote.pubkey(),
             reserve_lamports / 2,
+            0,
         )],
         Some(&payer.pubkey()),
         &[&payer, &stake_pool_accounts.staker],
@@ -205,6 +207,7 @@ async fn fail_with_wrong_validator_list() {
             &validator_stake.transient_stake_account,
             &validator_stake.vote.pubkey(),
             reserve_lamports / 2,
+            0,
         )],
         Some(&payer.pubkey()),
         &[&payer, &stake_pool_accounts.staker],
@@ -258,6 +261,7 @@ async fn fail_with_unknown_validator() {
             &unknown_stake.transient_stake_account,
             &unknown_stake.vote.pubkey(),
             reserve_lamports / 2,
+            0,
         )],
         Some(&payer.pubkey()),
         &[&payer, &stake_pool_accounts.staker],
@@ -298,6 +302,7 @@ async fn fail_increase_twice() {
             &validator_stake.transient_stake_account,
             &validator_stake.vote.pubkey(),
             reserve_lamports / 3,
+            0,
         )
         .await;
     assert!(error.is_none());
@@ -310,6 +315,7 @@ async fn fail_increase_twice() {
             &validator_stake.transient_stake_account,
             &validator_stake.vote.pubkey(),
             reserve_lamports / 4,
+            0,
         )
         .await
         .unwrap()
@@ -345,6 +351,7 @@ async fn fail_with_small_lamport_amount() {
             &validator_stake.transient_stake_account,
             &validator_stake.vote.pubkey(),
             stake_rent,
+            0,
         )
         .await
         .unwrap()
@@ -375,6 +382,7 @@ async fn fail_overdraw_reserve() {
             &validator_stake.transient_stake_account,
             &validator_stake.vote.pubkey(),
             reserve_lamports,
+            0,
         )
         .await
         .unwrap()

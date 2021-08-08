@@ -239,6 +239,7 @@ async fn merge_into_reserve() {
                 &stake_account.stake_account,
                 &stake_account.transient_stake_account,
                 lamports,
+                0,
             )
             .await;
         assert!(error.is_none());
@@ -342,6 +343,7 @@ async fn merge_into_validator_stake() {
                 &stake_account.transient_stake_account,
                 &stake_account.vote.pubkey(),
                 reserve_lamports / stake_accounts.len() as u64,
+                0,
             )
             .await;
         assert!(error.is_none());
@@ -469,6 +471,7 @@ async fn merge_transient_stake_after_remove() {
                 &stake_account.stake_account,
                 &stake_account.transient_stake_account,
                 deactivated_lamports,
+                0,
             )
             .await;
         assert!(error.is_none());
@@ -479,7 +482,7 @@ async fn merge_transient_stake_after_remove() {
                 &context.last_blockhash,
                 &new_authority,
                 &stake_account.stake_account,
-                &stake_account.transient_stake_account,
+                &stake_account.vote.pubkey(),
             )
             .await;
         assert!(error.is_none());
