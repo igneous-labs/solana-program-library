@@ -96,6 +96,7 @@ async fn success() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             decrease_lamports,
+            0,
         )
         .await;
     assert!(error.is_none());
@@ -156,6 +157,7 @@ async fn fail_with_wrong_withdraw_authority() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             decrease_lamports,
+            0,
         )],
         Some(&payer.pubkey()),
         &[&payer, &stake_pool_accounts.staker],
@@ -201,6 +203,7 @@ async fn fail_with_wrong_validator_list() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             decrease_lamports,
+            0,
         )],
         Some(&payer.pubkey()),
         &[&payer, &stake_pool_accounts.staker],
@@ -254,6 +257,7 @@ async fn fail_with_unknown_validator() {
             &unknown_stake.stake_account,
             &unknown_stake.transient_stake_account,
             decrease_lamports,
+            0,
         )],
         Some(&payer.pubkey()),
         &[&payer, &stake_pool_accounts.staker],
@@ -295,6 +299,7 @@ async fn fail_decrease_twice() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             decrease_lamports / 3,
+            0,
         )
         .await;
     assert!(error.is_none());
@@ -307,6 +312,7 @@ async fn fail_decrease_twice() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             decrease_lamports / 2,
+            0,
         )
         .await
         .unwrap()
@@ -343,6 +349,7 @@ async fn fail_with_small_lamport_amount() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             lamports,
+            0,
         )
         .await
         .unwrap()
@@ -374,6 +381,7 @@ async fn fail_overdraw_validator() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             deposit_info.stake_lamports * 1_000_000,
+            0,
         )
         .await
         .unwrap()

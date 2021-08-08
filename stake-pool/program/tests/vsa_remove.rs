@@ -19,7 +19,10 @@ use {
         transaction::{Transaction, TransactionError},
         transport::TransportError,
     },
-    spl_stake_pool::{error::StakePoolError, id, instruction, stake_program, state},
+    spl_stake_pool::{
+        error::StakePoolError, find_transient_stake_program_address, id, instruction,
+        stake_program, state, MAX_TRANSIENT_STAKES,
+    },
 };
 
 async fn setup() -> (
@@ -78,7 +81,7 @@ async fn success() {
             &recent_blockhash,
             &new_authority,
             &validator_stake.stake_account,
-            &validator_stake.transient_stake_account,
+            &validator_stake.vote.pubkey(),
         )
         .await;
     assert!(error.is_none());
@@ -127,17 +130,28 @@ async fn fail_with_wrong_stake_program_id() {
     let wrong_stake_program = Pubkey::new_unique();
 
     let new_authority = Pubkey::new_unique();
-    let accounts = vec![
+    let mut accounts = vec![
         AccountMeta::new(stake_pool_accounts.stake_pool.pubkey(), false),
         AccountMeta::new_readonly(stake_pool_accounts.staker.pubkey(), true),
         AccountMeta::new_readonly(stake_pool_accounts.withdraw_authority, false),
         AccountMeta::new_readonly(new_authority, false),
         AccountMeta::new(stake_pool_accounts.validator_list.pubkey(), false),
         AccountMeta::new(validator_stake.stake_account, false),
-        AccountMeta::new_readonly(validator_stake.transient_stake_account, false),
         AccountMeta::new_readonly(sysvar::clock::id(), false),
         AccountMeta::new_readonly(wrong_stake_program, false),
     ];
+    for i in 0..MAX_TRANSIENT_STAKES {
+        accounts.push(AccountMeta::new(
+            find_transient_stake_program_address(
+                &id(),
+                &validator_stake.vote.pubkey(),
+                &stake_pool_accounts.stake_pool.pubkey(),
+                i,
+            )
+            .0,
+            false,
+        ));
+    }
     let instruction = Instruction {
         program_id: id(),
         accounts,
@@ -227,7 +241,7 @@ async fn fail_not_at_minimum() {
             &recent_blockhash,
             &new_authority,
             &validator_stake.stake_account,
-            &validator_stake.transient_stake_account,
+            &validator_stake.vote.pubkey(),
         )
         .await
         .unwrap()
@@ -254,7 +268,7 @@ async fn fail_double_remove() {
             &recent_blockhash,
             &new_authority,
             &validator_stake.stake_account,
-            &validator_stake.transient_stake_account,
+            &validator_stake.vote.pubkey(),
         )
         .await;
     assert!(error.is_none());
@@ -273,7 +287,7 @@ async fn fail_double_remove() {
             &latest_blockhash,
             &new_authority,
             &validator_stake.stake_account,
-            &validator_stake.transient_stake_account,
+            &validator_stake.vote.pubkey(),
         )
         .await
         .unwrap();
@@ -309,7 +323,7 @@ async fn fail_wrong_staker() {
             &new_authority,
             &stake_pool_accounts.validator_list.pubkey(),
             &validator_stake.stake_account,
-            &validator_stake.transient_stake_account,
+            &validator_stake.vote.pubkey(),
         )],
         Some(&payer.pubkey()),
     );
@@ -341,17 +355,28 @@ async fn fail_no_signature() {
 
     let new_authority = Pubkey::new_unique();
 
-    let accounts = vec![
+    let mut accounts = vec![
         AccountMeta::new(stake_pool_accounts.stake_pool.pubkey(), false),
         AccountMeta::new_readonly(stake_pool_accounts.staker.pubkey(), false),
         AccountMeta::new_readonly(stake_pool_accounts.withdraw_authority, false),
         AccountMeta::new_readonly(new_authority, false),
         AccountMeta::new(stake_pool_accounts.validator_list.pubkey(), false),
         AccountMeta::new(validator_stake.stake_account, false),
-        AccountMeta::new_readonly(validator_stake.transient_stake_account, false),
         AccountMeta::new_readonly(sysvar::clock::id(), false),
         AccountMeta::new_readonly(stake_program::id(), false),
     ];
+    for i in 0..MAX_TRANSIENT_STAKES {
+        accounts.push(AccountMeta::new(
+            find_transient_stake_program_address(
+                &id(),
+                &validator_stake.vote.pubkey(),
+                &stake_pool_accounts.stake_pool.pubkey(),
+                i,
+            )
+            .0,
+            false,
+        ));
+    }
     let instruction = Instruction {
         program_id: id(),
         accounts,
@@ -398,6 +423,7 @@ async fn fail_with_activating_transient_stake() {
             &validator_stake.transient_stake_account,
             &validator_stake.vote.pubkey(),
             2_000_000_000,
+            0,
         )
         .await;
     assert!(error.is_none());
@@ -410,7 +436,7 @@ async fn fail_with_activating_transient_stake() {
             &recent_blockhash,
             &new_authority,
             &validator_stake.stake_account,
-            &validator_stake.transient_stake_account,
+            &validator_stake.vote.pubkey(),
         )
         .await
         .unwrap()
@@ -454,6 +480,7 @@ async fn success_with_deactivating_transient_stake() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             TEST_STAKE_AMOUNT + stake_rent,
+            0,
         )
         .await;
     assert!(error.is_none());
@@ -466,7 +493,7 @@ async fn success_with_deactivating_transient_stake() {
             &recent_blockhash,
             &new_authority,
             &validator_stake.stake_account,
-            &validator_stake.transient_stake_account,
+            &validator_stake.vote.pubkey(),
         )
         .await;
     assert!(error.is_none());
@@ -597,7 +624,7 @@ async fn success_resets_preferred_validator() {
             &recent_blockhash,
             &new_authority,
             &validator_stake.stake_account,
-            &validator_stake.transient_stake_account,
+            &validator_stake.vote.pubkey(),
         )
         .await;
     assert!(error.is_none());

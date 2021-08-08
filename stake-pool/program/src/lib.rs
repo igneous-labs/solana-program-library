@@ -36,8 +36,10 @@ pub const MINIMUM_ACTIVE_STAKE: u64 = LAMPORTS_PER_SOL;
 /// `UpdateValidatorListBalance` instruction, based on compute limits
 pub const MAX_VALIDATORS_TO_UPDATE: usize = 5;
 
-/// Maximum amount of transient stake accounts per validator
-pub const MAX_TRANSIENT_STAKES: u8 = 8;
+/// Maximum number of transient stake accounts per validator.
+/// Seems like 6 is the absolute limit right now or tests will start exceeding max number of instructions
+/// or computational budget inconsistently
+pub const MAX_TRANSIENT_STAKES: u8 = 4;
 
 /// Maximum factor by which a withdrawal fee can be increased per epoch
 /// protecting stakers from malicious users.
