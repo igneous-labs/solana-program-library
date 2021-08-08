@@ -877,6 +877,7 @@ async fn success_with_reserve() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             deposit_lamports - 1,
+            0,
         )
         .await;
     assert!(error.is_none());
@@ -954,6 +955,7 @@ async fn success_with_reserve() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             stake_rent + 1,
+            0,
         )
         .await;
     assert!(error.is_none());
@@ -1254,6 +1256,7 @@ async fn success_withdraw_from_transient() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             stake_rent + 1,
+            0,
         )
         .await;
     assert!(error.is_none());
@@ -1322,6 +1325,7 @@ async fn success_withdraw_from_transient() {
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
             deposit_lamports - 1,
+            0,
         )
         .await;
     assert!(error.is_none());

@@ -387,12 +387,6 @@ async fn remove_validator_from_pool() {
     let first_vote = vote_account_pubkeys[0];
     let (stake_address, _) =
         find_stake_program_address(&id(), &first_vote, &stake_pool_accounts.stake_pool.pubkey());
-    let (transient_stake_address, _) = find_transient_stake_program_address(
-        &id(),
-        &first_vote,
-        &stake_pool_accounts.stake_pool.pubkey(),
-        0,
-    );
 
     let new_authority = Pubkey::new_unique();
     let error = stake_pool_accounts
@@ -402,7 +396,7 @@ async fn remove_validator_from_pool() {
             &context.last_blockhash,
             &new_authority,
             &stake_address,
-            &transient_stake_address,
+            &first_vote,
         )
         .await;
     assert!(error.is_none());
@@ -414,12 +408,6 @@ async fn remove_validator_from_pool() {
         &middle_vote,
         &stake_pool_accounts.stake_pool.pubkey(),
     );
-    let (transient_stake_address, _) = find_transient_stake_program_address(
-        &id(),
-        &middle_vote,
-        &stake_pool_accounts.stake_pool.pubkey(),
-        0,
-    );
 
     let new_authority = Pubkey::new_unique();
     let error = stake_pool_accounts
@@ -429,7 +417,7 @@ async fn remove_validator_from_pool() {
             &context.last_blockhash,
             &new_authority,
             &stake_address,
-            &transient_stake_address,
+            &middle_vote,
         )
         .await;
     assert!(error.is_none());
@@ -438,12 +426,6 @@ async fn remove_validator_from_pool() {
     let last_vote = vote_account_pubkeys[last_index];
     let (stake_address, _) =
         find_stake_program_address(&id(), &last_vote, &stake_pool_accounts.stake_pool.pubkey());
-    let (transient_stake_address, _) = find_transient_stake_program_address(
-        &id(),
-        &last_vote,
-        &stake_pool_accounts.stake_pool.pubkey(),
-        0,
-    );
 
     let new_authority = Pubkey::new_unique();
     let error = stake_pool_accounts
@@ -453,7 +435,7 @@ async fn remove_validator_from_pool() {
             &context.last_blockhash,
             &new_authority,
             &stake_address,
-            &transient_stake_address,
+            &last_vote,
         )
         .await;
     assert!(error.is_none());
@@ -595,6 +577,7 @@ async fn add_validator_to_pool() {
             &transient_stake_address,
             &test_vote_address,
             increase_amount,
+            0,
         )
         .await;
     assert!(error.is_none(), "{:?}", error);

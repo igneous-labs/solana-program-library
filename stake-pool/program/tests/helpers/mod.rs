@@ -484,6 +484,7 @@ pub async fn authorize_stake_account(
     banks_client.process_transaction(transaction).await.unwrap();
 }
 
+// TODO: change transient_stake_account to [Pubkey; MAX_TRANSIENT_STAKES]
 pub struct ValidatorStakeAccount {
     pub stake_account: Pubkey,
     pub transient_stake_account: Pubkey,
@@ -970,7 +971,7 @@ impl StakePoolAccounts {
         recent_blockhash: &Hash,
         new_authority: &Pubkey,
         validator_stake: &Pubkey,
-        transient_stake: &Pubkey,
+        vote_account: &Pubkey,
     ) -> Option<TransportError> {
         let transaction = Transaction::new_signed_with_payer(
             &[instruction::remove_validator_from_pool(
@@ -981,7 +982,7 @@ impl StakePoolAccounts {
                 &new_authority,
                 &self.validator_list.pubkey(),
                 validator_stake,
-                transient_stake,
+                vote_account,
             )],
             Some(&payer.pubkey()),
             &[payer, &self.staker],
@@ -998,6 +999,7 @@ impl StakePoolAccounts {
         validator_stake: &Pubkey,
         transient_stake: &Pubkey,
         lamports: u64,
+        transient_index: u8,
     ) -> Option<TransportError> {
         let transaction = Transaction::new_signed_with_payer(
             &[instruction::decrease_validator_stake(
@@ -1009,6 +1011,7 @@ impl StakePoolAccounts {
                 validator_stake,
                 transient_stake,
                 lamports,
+                transient_index,
             )],
             Some(&payer.pubkey()),
             &[payer, &self.staker],
@@ -1025,6 +1028,7 @@ impl StakePoolAccounts {
         transient_stake: &Pubkey,
         validator: &Pubkey,
         lamports: u64,
+        transient_index: u8,
     ) -> Option<TransportError> {
         let transaction = Transaction::new_signed_with_payer(
             &[instruction::increase_validator_stake(
@@ -1037,6 +1041,7 @@ impl StakePoolAccounts {
                 transient_stake,
                 validator,
                 lamports,
+                transient_index,
             )],
             Some(&payer.pubkey()),
             &[payer, &self.staker],

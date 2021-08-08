@@ -239,10 +239,8 @@ pub enum StakePoolInstruction {
     ///  5. `[]` Sysvar stake history
     ///  6. `[]` Stake program
     ///  7. ..7+N `[]` validator and transient stake accounts. `N = number of validators * (MAX_TRANSIENT_STAKES + 1)`
-    ///                Order: first `number of validators` accounts are the validator stake accounts.
-    ///                Next `MAX_TRANSIENT_STAKES` accounts are the transient stake accounts for validator[0].
-    ///                Following `MAX_TRANSIENT_STAKES` accounts after that are the transient stake accounts for validator[1].
-    ///                and so on...
+    ///                Order: in chunks of `(MAX_TRANSIENT_STAKES + 1)`. First account in chunk is the validator stake account,
+    ///                       next `MAX_TRANSIENT_STAKES` accounts are the transient stake accounts for that validator
     UpdateValidatorListBalance {
         /// Index to start updating on the validator list
         #[allow(dead_code)] // but it's not
@@ -805,18 +803,20 @@ pub fn update_validator_list_balance(
         &mut validator_vote_accounts
             .iter()
             .flat_map(|vote_account_address| {
+                let mut accounts = Vec::with_capacity(MAX_TRANSIENT_STAKES as usize + 1);
                 let (validator_stake_account, _) =
                     find_stake_program_address(program_id, vote_account_address, stake_pool);
-                let (transient_stake_account, _) = find_transient_stake_program_address(
-                    program_id,
-                    vote_account_address,
-                    stake_pool,
-                    0,
-                );
-                vec![
-                    AccountMeta::new(validator_stake_account, false),
-                    AccountMeta::new(transient_stake_account, false),
-                ]
+                accounts.push(AccountMeta::new(validator_stake_account, false));
+                for i in 0..MAX_TRANSIENT_STAKES {
+                    let (transient_stake_account, _) = find_transient_stake_program_address(
+                        program_id,
+                        vote_account_address,
+                        stake_pool,
+                        i,
+                    );
+                    accounts.push(AccountMeta::new(transient_stake_account, false));
+                }
+                accounts
             })
             .collect::<Vec<AccountMeta>>(),
     );
