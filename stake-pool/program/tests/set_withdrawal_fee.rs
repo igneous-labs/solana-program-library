@@ -90,7 +90,7 @@ async fn success() {
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            &[],
+            &mut [],
             false,
         )
         .await;
@@ -163,7 +163,7 @@ async fn success_increase_fee_from_0() {
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            &[],
+            &mut [],
             false,
         )
         .await;

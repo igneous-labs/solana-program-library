@@ -84,7 +84,7 @@ async fn setup(
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            &[],
+            &mut [],
             false,
         )
         .await;
@@ -115,19 +115,23 @@ async fn setup(
     slot += slots_per_epoch;
     context.warp_to_slot(slot).unwrap();
 
-    stake_pool_accounts
+    let mut vote_accounts = stake_accounts
+        .iter()
+        .map(|v| v.vote.pubkey())
+        .collect::<Vec<Pubkey>>();
+
+    // Update list and pool
+    let error = stake_pool_accounts
         .update_all(
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            stake_accounts
-                .iter()
-                .map(|v| v.vote.pubkey())
-                .collect::<Vec<Pubkey>>()
-                .as_slice(),
+            &mut vote_accounts,
             false,
         )
         .await;
+
+    assert!(error.is_none());
 
     (
         context,
@@ -179,19 +183,24 @@ async fn success() {
     slot += slots_per_epoch;
     context.warp_to_slot(slot).unwrap();
 
-    stake_pool_accounts
+    let mut vote_accounts = stake_accounts
+        .iter()
+        .map(|v| v.vote.pubkey())
+        .collect::<Vec<Pubkey>>();
+
+    // Update list and pool
+    let error = stake_pool_accounts
         .update_all(
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            stake_accounts
-                .iter()
-                .map(|v| v.vote.pubkey())
-                .collect::<Vec<Pubkey>>()
-                .as_slice(),
+            &mut vote_accounts,
             false,
         )
         .await;
+
+    assert!(error.is_none());
+
     let new_lamports = get_validator_list_sum(
         &mut context.banks_client,
         &stake_pool_accounts.reserve_stake.pubkey(),
@@ -245,19 +254,23 @@ async fn merge_into_reserve() {
     }
 
     println!("Update, should not change, no merges yet");
-    stake_pool_accounts
+    let mut vote_accounts = stake_accounts
+        .iter()
+        .map(|v| v.vote.pubkey())
+        .collect::<Vec<Pubkey>>();
+
+    // Update list and pool
+    let error = stake_pool_accounts
         .update_all(
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            stake_accounts
-                .iter()
-                .map(|v| v.vote.pubkey())
-                .collect::<Vec<Pubkey>>()
-                .as_slice(),
+            &mut vote_accounts,
             false,
         )
         .await;
+
+    assert!(error.is_none());
 
     let expected_lamports = get_validator_list_sum(
         &mut context.banks_client,
@@ -280,19 +293,23 @@ async fn merge_into_reserve() {
     slot += slots_per_epoch;
     context.warp_to_slot(slot).unwrap();
 
-    stake_pool_accounts
+    let mut vote_accounts = stake_accounts
+        .iter()
+        .map(|v| v.vote.pubkey())
+        .collect::<Vec<Pubkey>>();
+
+    // Update list and pool
+    let error = stake_pool_accounts
         .update_all(
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            stake_accounts
-                .iter()
-                .map(|v| v.vote.pubkey())
-                .collect::<Vec<Pubkey>>()
-                .as_slice(),
+            &mut vote_accounts,
             false,
         )
         .await;
+
+    assert!(error.is_none());
     let expected_lamports = get_validator_list_sum(
         &mut context.banks_client,
         &stake_pool_accounts.reserve_stake.pubkey(),
@@ -356,11 +373,11 @@ async fn merge_into_validator_stake() {
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            stake_accounts
+            &mut stake_accounts
                 .iter()
                 .map(|v| v.vote.pubkey())
                 .collect::<Vec<Pubkey>>()
-                .as_slice(),
+                .as_mut_slice(),
             false,
         )
         .await;
@@ -391,11 +408,11 @@ async fn merge_into_validator_stake() {
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            stake_accounts
+            &mut stake_accounts
                 .iter()
                 .map(|v| v.vote.pubkey())
                 .collect::<Vec<Pubkey>>()
-                .as_slice(),
+                .as_mut_slice(),
             false,
         )
         .await;
@@ -491,19 +508,22 @@ async fn merge_transient_stake_after_remove() {
     context.warp_to_slot(slot).unwrap();
 
     // Update without merge, status should be DeactivatingTransient
+    let mut vote_accounts = stake_accounts
+        .iter()
+        .map(|v| v.vote.pubkey())
+        .collect::<Vec<Pubkey>>();
+
+    // Update list and pool
     let error = stake_pool_accounts
         .update_all(
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            stake_accounts
-                .iter()
-                .map(|v| v.vote.pubkey())
-                .collect::<Vec<Pubkey>>()
-                .as_slice(),
+            &mut vote_accounts,
             true,
         )
         .await;
+
     assert!(error.is_none());
 
     let validator_list = get_account(
@@ -639,19 +659,23 @@ async fn success_with_burned_tokens() {
     slot += slots_per_epoch;
     context.warp_to_slot(slot).unwrap();
 
-    stake_pool_accounts
+    let mut vote_accounts = stake_accounts
+        .iter()
+        .map(|v| v.vote.pubkey())
+        .collect::<Vec<Pubkey>>();
+
+    // Update list and pool
+    let error = stake_pool_accounts
         .update_all(
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            stake_accounts
-                .iter()
-                .map(|v| v.vote.pubkey())
-                .collect::<Vec<Pubkey>>()
-                .as_slice(),
+            &mut vote_accounts,
             false,
         )
         .await;
+
+    assert!(error.is_none());
 
     let stake_pool_info = get_account(
         &mut context.banks_client,

@@ -87,7 +87,7 @@ async fn success() {
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            &[],
+            &mut [],
             false,
         )
         .await;

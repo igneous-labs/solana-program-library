@@ -825,9 +825,10 @@ impl StakePoolAccounts {
         banks_client: &mut BanksClient,
         payer: &Keypair,
         recent_blockhash: &Hash,
-        validator_vote_accounts: &[Pubkey],
+        validator_vote_accounts: &mut [Pubkey],
         no_merge: bool,
     ) -> Option<TransportError> {
+        validator_vote_accounts.sort();
         let transaction = Transaction::new_signed_with_payer(
             &[
                 instruction::update_validator_list_balance(

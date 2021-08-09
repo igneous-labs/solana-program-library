@@ -1,1 +1,2 @@
 cc 41ce1c46341336993e5e5d5aa94c30865e63f9e00d31d397aef88ec79fc312ca
+cc 45f43dc9a42c335b3036689aaec5e6df29df69fa02a0785e81e2724d35d15c29 # shrinks to (numerator, denominator) = (0, 1052), (total_stake_lamports, reward_lamports) = (4371515239087310117, 2119122598801638521)

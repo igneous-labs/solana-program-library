@@ -1,5 +1,6 @@
 //! Program state processor
 
+use crate::{MAX_RESERVE_FRACTION_DENOMINATOR, MAX_RESERVE_FRACTION_NUMERATOR};
 use {
     crate::{
         error::StakePoolError,
@@ -803,8 +804,7 @@ impl Processor {
         }
 
         let maybe_validator_stake_info = validator_list.find::<ValidatorStakeInfo>(
-            vote_account_address.as_ref(),
-            ValidatorStakeInfo::memcmp_pubkey,
+            &ValidatorStakeInfo::default_with_pubkey(vote_account_address),
         );
         if maybe_validator_stake_info.is_some() {
             return Err(StakePoolError::ValidatorAlreadyAdded.into());
@@ -843,7 +843,7 @@ impl Processor {
             stake_program_info.clone(),
         )?;
 
-        validator_list.push(ValidatorStakeInfo {
+        validator_list.insert_in_order(&ValidatorStakeInfo {
             status: StakeStatus::Active,
             vote_account_address,
             active_stake_lamports: 0,
@@ -916,8 +916,7 @@ impl Processor {
         )?;
 
         let maybe_validator_stake_info = validator_list.find_mut::<ValidatorStakeInfo>(
-            vote_account_address.as_ref(),
-            ValidatorStakeInfo::memcmp_pubkey,
+            &ValidatorStakeInfo::default_with_pubkey(vote_account_address),
         );
         if maybe_validator_stake_info.is_none() {
             msg!(
@@ -1063,8 +1062,7 @@ impl Processor {
         ];
 
         let maybe_validator_stake_info = validator_list.find_mut::<ValidatorStakeInfo>(
-            vote_account_address.as_ref(),
-            ValidatorStakeInfo::memcmp_pubkey,
+            &ValidatorStakeInfo::default_with_pubkey(vote_account_address),
         );
         if maybe_validator_stake_info.is_none() {
             msg!(
@@ -1191,8 +1189,7 @@ impl Processor {
         ];
 
         let maybe_validator_stake_info = validator_list.find_mut::<ValidatorStakeInfo>(
-            vote_account_address.as_ref(),
-            ValidatorStakeInfo::memcmp_pubkey,
+            &ValidatorStakeInfo::default_with_pubkey(*vote_account_address),
         );
         if maybe_validator_stake_info.is_none() {
             msg!(
@@ -1305,8 +1302,7 @@ impl Processor {
 
         if let Some(vote_account_address) = vote_account_address {
             let maybe_validator_stake_info = validator_list.find::<ValidatorStakeInfo>(
-                vote_account_address.as_ref(),
-                ValidatorStakeInfo::memcmp_pubkey,
+                &ValidatorStakeInfo::default_with_pubkey(vote_account_address),
             );
             if maybe_validator_stake_info.is_none() {
                 msg!("Validator for {} not present in the stake pool, cannot set as preferred deposit account");
@@ -1795,10 +1791,9 @@ impl Processor {
         }
 
         let mut validator_stake_info = validator_list
-            .find_mut::<ValidatorStakeInfo>(
-                vote_account_address.as_ref(),
-                ValidatorStakeInfo::memcmp_pubkey,
-            )
+            .find_mut::<ValidatorStakeInfo>(&ValidatorStakeInfo::default_with_pubkey(
+                vote_account_address,
+            ))
             .ok_or(StakePoolError::ValidatorNotFound)?;
 
         if validator_stake_info.status != StakeStatus::Active {
@@ -1986,23 +1981,25 @@ impl Processor {
             return Err(StakePoolError::WithdrawalTooSmall.into());
         }
 
-        let has_active_stake = validator_list
-            .find::<ValidatorStakeInfo>(
-                &0u64.to_le_bytes(),
-                ValidatorStakeInfo::memcmp_active_lamports,
-            )
-            .is_some();
+        // let has_active_stake = validator_list
+        //     .find::<ValidatorStakeInfo>(
+        //         &0u64.to_le_bytes(),
+        //         ValidatorStakeInfo::memcmp_active_lamports,
+        //     )
+        //     .is_some();
 
         let validator_list_item_info = if *stake_split_from.key == stake_pool.reserve_stake {
-            // check that the validator stake accounts have no withdrawable stake
-            let has_transient_stake = validator_list
-                .find::<ValidatorStakeInfo>(
-                    &0u64.to_le_bytes(),
-                    ValidatorStakeInfo::memcmp_transient_lamports,
-                )
-                .is_some();
-            if has_transient_stake || has_active_stake {
-                msg!("Error withdrawing from reserve: validator stake accounts have lamports available, please use those first.");
+            // Check if the reserve has sufficient lamports to facilitate
+            // a direct withdrawal
+            if stake_split_from.lamports()
+                < stake_pool
+                    .total_stake_lamports
+                    .checked_mul(MAX_RESERVE_FRACTION_NUMERATOR)
+                    .ok_or(StakePoolError::CalculationFailure)?
+                    .checked_div(MAX_RESERVE_FRACTION_DENOMINATOR)
+                    .ok_or(StakePoolError::CalculationFailure)?
+            {
+                msg!("Error withdrawing from reserve: validator stake accounts have sufficient lamports available, please use those first.");
                 return Err(StakePoolError::StakeLamportsNotEqualToMinimum.into());
             }
 
@@ -2024,10 +2021,9 @@ impl Processor {
                 stake_pool.preferred_withdraw_validator_vote_address
             {
                 let preferred_validator_info = validator_list
-                    .find::<ValidatorStakeInfo>(
-                        preferred_withdraw_validator.as_ref(),
-                        ValidatorStakeInfo::memcmp_pubkey,
-                    )
+                    .find::<ValidatorStakeInfo>(&ValidatorStakeInfo::default_with_pubkey(
+                        preferred_withdraw_validator,
+                    ))
                     .ok_or(StakePoolError::ValidatorNotFound)?;
                 if preferred_withdraw_validator != vote_account_address
                     && preferred_validator_info.active_stake_lamports > 0
@@ -2036,6 +2032,15 @@ impl Processor {
                     return Err(StakePoolError::IncorrectWithdrawVoteAddress.into());
                 }
             }
+
+            let validator_stake_info = validator_list
+                .find_mut::<ValidatorStakeInfo>(&ValidatorStakeInfo::default_with_pubkey(
+                    vote_account_address,
+                ))
+                .ok_or(StakePoolError::ValidatorNotFound)?;
+
+            // TODO: SHOULD REALLY BE stake pool's active stake lamports...
+            let has_active_stake = validator_stake_info.active_stake_lamports > 0;
 
             // if there's any active stake, we must withdraw from an active
             // stake account
@@ -2056,13 +2061,6 @@ impl Processor {
                 )?;
                 true
             };
-
-            let validator_stake_info = validator_list
-                .find_mut::<ValidatorStakeInfo>(
-                    vote_account_address.as_ref(),
-                    ValidatorStakeInfo::memcmp_pubkey,
-                )
-                .ok_or(StakePoolError::ValidatorNotFound)?;
 
             if validator_stake_info.status != StakeStatus::Active {
                 msg!("Validator is marked for removal and no longer allowing withdrawals");

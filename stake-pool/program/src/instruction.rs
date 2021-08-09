@@ -128,7 +128,7 @@ pub enum StakePoolInstruction {
     /// exist. The amount of lamports to move must be at least rent-exemption
     /// plus 1 lamport.
     ///
-    ///  0. `[]` Stake pool
+    ///  0. `[w]` Stake pool
     ///  1. `[s]` Stake pool staker
     ///  2. `[]` Stake pool withdraw authority
     ///  3. `[w]` Validator list
@@ -151,7 +151,7 @@ pub enum StakePoolInstruction {
     /// The minimum amount to move is rent-exemption plus 1 SOL in order to avoid
     /// issues on credits observed when merging active stakes later.
     ///
-    ///  0. `[]` Stake pool
+    ///  0. `[w]` Stake pool
     ///  1. `[s]` Stake pool staker
     ///  2. `[]` Stake pool withdraw authority
     ///  3. `[w]` Validator list
@@ -202,7 +202,7 @@ pub enum StakePoolInstruction {
     ///  all other states, nothing is done, and the balance is simply added to
     ///  the canonical stake account balance.
     ///
-    ///  0. `[]` Stake pool
+    ///  0. `[w]` Stake pool
     ///  1. `[]` Stake pool withdraw authority
     ///  2. `[w]` Validator stake list storage account
     ///  3. `[w]` Reserve stake account
@@ -674,6 +674,8 @@ pub fn decrease_validator_stake_with_vote(
 }
 
 /// Creates `UpdateValidatorListBalance` instruction (update validator stake account balances)
+/// The validator vote accounts need to be provided in the same order as they appear in the
+/// validator list.
 pub fn update_validator_list_balance(
     program_id: &Pubkey,
     stake_pool: &Pubkey,

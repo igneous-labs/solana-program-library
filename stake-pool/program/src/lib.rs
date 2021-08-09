@@ -49,6 +49,12 @@ pub const WITHDRAWAL_BASELINE_FEE: Fee = Fee {
     denominator: 1000,
 };
 
+/// Maximum stake that can be in the reserve account
+pub const MAX_RESERVE_FRACTION_NUMERATOR: u64 = 95;
+
+/// Maximum stake that can be in the reserve account
+pub const MAX_RESERVE_FRACTION_DENOMINATOR: u64 = 100;
+
 /// Get the stake amount under consideration when calculating pool token
 /// conversions
 pub fn minimum_stake_lamports(meta: &Meta) -> u64 {

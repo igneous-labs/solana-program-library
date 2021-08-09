@@ -549,7 +549,7 @@ async fn success_with_deactivating_transient_stake() {
             &mut banks_client,
             &payer,
             &recent_blockhash,
-            &[validator_stake.vote.pubkey()],
+            &mut [validator_stake.vote.pubkey()],
             false,
         )
         .await;

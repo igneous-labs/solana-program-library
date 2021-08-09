@@ -103,17 +103,18 @@ async fn success() {
     // Update epoch
     context.warp_to_slot(50_000).unwrap();
 
+    let mut vote_accounts = stake_accounts
+        .iter()
+        .map(|v| v.vote.pubkey())
+        .collect::<Vec<Pubkey>>();
+
     // Update list and pool
     let error = stake_pool_accounts
         .update_all(
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            stake_accounts
-                .iter()
-                .map(|v| v.vote.pubkey())
-                .collect::<Vec<Pubkey>>()
-                .as_slice(),
+            &mut vote_accounts,
             false,
         )
         .await;
@@ -206,17 +207,18 @@ async fn success_ignoring_extra_lamports() {
     // Update epoch
     context.warp_to_slot(50_000).unwrap();
 
+    let mut vote_accounts = stake_accounts
+        .iter()
+        .map(|v| v.vote.pubkey())
+        .collect::<Vec<Pubkey>>();
+
     // Update list and pool
     let error = stake_pool_accounts
         .update_all(
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            stake_accounts
-                .iter()
-                .map(|v| v.vote.pubkey())
-                .collect::<Vec<Pubkey>>()
-                .as_slice(),
+            &mut vote_accounts,
             false,
         )
         .await;

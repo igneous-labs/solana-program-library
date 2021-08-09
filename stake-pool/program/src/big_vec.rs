@@ -4,7 +4,7 @@ use {
     arrayref::array_ref,
     borsh::{BorshDeserialize, BorshSerialize},
     solana_program::{
-        program_error::ProgramError, program_memory::sol_memmove, program_pack::Pack,
+        msg, program_error::ProgramError, program_memory::sol_memmove, program_pack::Pack,
     },
     std::marker::PhantomData,
 };
@@ -104,6 +104,7 @@ impl<'data> BigVec<'data> {
     }
 
     /// Add new element to the end
+    /// Deprecated. Use `insert_in_order` instead
     pub fn push<T: Pack>(&mut self, element: T) -> Result<(), ProgramError> {
         let mut vec_len_ref = &mut self.data[0..VEC_SIZE_BYTES];
         let mut vec_len = u32::try_from_slice(vec_len_ref)?;
@@ -145,39 +146,122 @@ impl<'data> BigVec<'data> {
     }
 
     /// Find matching data in the array
-    pub fn find<T: Pack>(&self, data: &[u8], predicate: fn(&[u8], &[u8]) -> bool) -> Option<&T> {
+    pub fn find<T: Pack + Ord>(&self, element: &T) -> Option<&T> {
+        let (index, is_found) = self.binary_search(element);
+        if is_found {
+            Some(self.get::<T>(index).unwrap())
+        } else {
+            None
+        }
+    }
+
+    /// Find matching data in the array
+    pub fn find_mut<T: Pack + Ord>(&mut self, element: &T) -> Option<&mut T> {
+        let (index, is_found) = self.binary_search(element);
+        if is_found {
+            Some(self.get_mut::<T>(index).unwrap())
+        } else {
+            None
+        }
+    }
+
+    /// Returns either the index at which the element is found, and true
+    /// or the index where the element should be, and false.
+
+    /// The returned index is in the range [0, len] inclusive
+    fn binary_search<T: Pack + Ord>(&self, element: &T) -> (usize, bool) {
         let len = self.len() as usize;
-        let mut current = 0;
-        let mut current_index = VEC_SIZE_BYTES;
-        while current != len {
-            let end_index = current_index + T::LEN;
-            let current_slice = &self.data[current_index..end_index];
-            if predicate(current_slice, data) {
-                return Some(unsafe { &*(current_slice.as_ptr() as *const T) });
+        if len == 0 {
+            return (0, false);
+        }
+        let (mut min, mut max) = (0, len - 1);
+
+        while min <= max {
+            let mid = (max - min) / 2 + min;
+            if let Some(elem_at_index) = self.get::<T>(mid) {
+                if *elem_at_index == *element {
+                    return (mid, true);
+                } else if *elem_at_index < *element {
+                    min = mid + 1;
+                } else {
+                    if mid == 0 {
+                        return (0, false);
+                    }
+                    max = mid - 1;
+                }
+            } else {
+                return (0, false);
             }
-            current_index = end_index;
-            current += 1;
+        }
+        // If elem > elem_at_index, min = elem_at_index + 1
+        // If min = elem_at_index > elem,
+        return (min, false);
+    }
+
+    /// Add new element in order into an ordered vec
+    pub fn insert_in_order<T: Pack + Ord + std::fmt::Debug>(
+        &mut self,
+        element: &T,
+    ) -> Result<(), ProgramError> {
+        let (index, is_found) = self.binary_search(element);
+        if is_found {
+            msg!(
+                "Cannot insert existing element. Found existing at vec index {}",
+                index
+            );
+            return Err(ProgramError::InvalidArgument);
+        } else {
+            let buffer_len = self.data.len();
+            let mut vec_len_ref = &mut self.data[0..VEC_SIZE_BYTES];
+            let mut vec_len = u32::try_from_slice(vec_len_ref)?;
+            vec_len += 1;
+
+            if (VEC_SIZE_BYTES + vec_len as usize * T::LEN) > buffer_len {
+                return Err(ProgramError::AccountDataTooSmall);
+            }
+            vec_len.serialize(&mut vec_len_ref)?;
+
+            let start = VEC_SIZE_BYTES + index * T::LEN;
+
+            // vec_len * T::LEN = num_bytes_to_shift + (index + 1) * T::LEN
+            // [...; (index + 1) * T::LEN] | [...; bytes_to_shift] = [..; vec_len]
+            let bytes_to_shift = (vec_len as usize - 1 - index) * T::LEN;
+
+            unsafe {
+                sol_memmove(
+                    self.data[start + T::LEN..].as_mut_ptr(),
+                    self.data[start..].as_mut_ptr(),
+                    bytes_to_shift,
+                );
+            }
+
+            let mut element_ref = &mut self.data[start..start + T::LEN];
+            element.pack_into_slice(&mut element_ref);
+
+            Ok(())
+        }
+    }
+
+    /// Find matching data in the array
+    fn get<T: Pack>(&self, index: usize) -> Option<&T> {
+        let len = self.len() as usize;
+        if index < len {
+            let start = VEC_SIZE_BYTES + index * T::LEN;
+            let end = start + T::LEN;
+            let slice = &self.data[start..end];
+            return Some(unsafe { &*(slice.as_ptr() as *const T) });
         }
         None
     }
 
     /// Find matching data in the array
-    pub fn find_mut<T: Pack>(
-        &mut self,
-        data: &[u8],
-        predicate: fn(&[u8], &[u8]) -> bool,
-    ) -> Option<&mut T> {
+    fn get_mut<T: Pack>(&self, index: usize) -> Option<&mut T> {
         let len = self.len() as usize;
-        let mut current = 0;
-        let mut current_index = VEC_SIZE_BYTES;
-        while current != len {
-            let end_index = current_index + T::LEN;
-            let current_slice = &self.data[current_index..end_index];
-            if predicate(current_slice, data) {
-                return Some(unsafe { &mut *(current_slice.as_ptr() as *mut T) });
-            }
-            current_index = end_index;
-            current += 1;
+        if index < len {
+            let start = VEC_SIZE_BYTES + index * T::LEN;
+            let end = start + T::LEN;
+            let slice = &self.data[start..end];
+            return Some(unsafe { &mut *(slice.as_ptr() as *mut T) });
         }
         None
     }
@@ -239,12 +323,9 @@ impl<'data, 'vec, T: Pack + 'data> Iterator for IterMut<'data, 'vec, T> {
 
 #[cfg(test)]
 mod tests {
-    use {
-        super::*,
-        solana_program::{program_memory::sol_memcmp, program_pack::Sealed},
-    };
+    use {super::*, solana_program::program_pack::Sealed};
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
     struct TestStruct {
         value: u64,
     }
@@ -274,6 +355,18 @@ mod tests {
         let mut big_vec = BigVec { data };
         for element in vec {
             big_vec.push(TestStruct::new(*element)).unwrap();
+        }
+        big_vec
+    }
+
+    fn from_slice_in_order<'data, 'other>(
+        data: &'data mut [u8],
+        vec: &'other [u64],
+    ) -> BigVec<'data> {
+        let mut big_vec = BigVec { data };
+        for element in vec {
+            println!("{}", element);
+            big_vec.insert_in_order(&TestStruct::new(*element)).unwrap();
         }
         big_vec
     }
@@ -314,11 +407,16 @@ mod tests {
         check_big_vec_eq(&v, &[2, 4]);
     }
 
-    fn find_predicate(a: &[u8], b: &[u8]) -> bool {
-        if a.len() != b.len() {
-            false
-        } else {
-            sol_memcmp(a, b, a.len()) == 0
+    #[test]
+    fn check_in_order() {
+        let mut data = [0u8; 4 + 8 * 4];
+        let mut array = [6, 2, 8, 4];
+        let v = from_slice_in_order(&mut data, &array);
+        array.sort();
+
+        for (i, item) in array.iter().enumerate() {
+            println!("{}:{}", i, item);
+            assert_eq!(*v.get::<TestStruct>(i).unwrap(), TestStruct::new(*item));
         }
     }
 
@@ -327,32 +425,24 @@ mod tests {
         let mut data = [0u8; 4 + 8 * 4];
         let v = from_slice(&mut data, &[1, 2, 3, 4]);
         assert_eq!(
-            v.find::<TestStruct>(&1u64.to_le_bytes(), find_predicate),
+            v.find::<TestStruct>(&TestStruct::new(1u64)),
             Some(&TestStruct::new(1))
         );
         assert_eq!(
-            v.find::<TestStruct>(&4u64.to_le_bytes(), find_predicate),
+            v.find::<TestStruct>(&TestStruct::new(4u64)),
             Some(&TestStruct::new(4))
         );
-        assert_eq!(
-            v.find::<TestStruct>(&5u64.to_le_bytes(), find_predicate),
-            None
-        );
+        assert_eq!(v.find::<TestStruct>(&TestStruct::new(5u64)), None);
     }
 
     #[test]
     fn find_mut() {
         let mut data = [0u8; 4 + 8 * 4];
         let mut v = from_slice(&mut data, &[1, 2, 3, 4]);
-        let mut test_struct = v
-            .find_mut::<TestStruct>(&1u64.to_le_bytes(), find_predicate)
-            .unwrap();
+        let mut test_struct = v.find_mut::<TestStruct>(&TestStruct::new(1u64)).unwrap();
         test_struct.value = 0;
         check_big_vec_eq(&v, &[0, 2, 3, 4]);
-        assert_eq!(
-            v.find_mut::<TestStruct>(&5u64.to_le_bytes(), find_predicate),
-            None
-        );
+        assert_eq!(v.find_mut::<TestStruct>(&TestStruct::new(5u64)), None);
     }
 
     #[test]

@@ -21,6 +21,7 @@ use {
     },
     spl_stake_pool::{
         error::StakePoolError, id, instruction, minimum_stake_lamports, stake_program, state,
+        MAX_RESERVE_FRACTION_DENOMINATOR, MAX_RESERVE_FRACTION_NUMERATOR,
     },
     spl_token::error::TokenError,
 };
@@ -260,6 +261,7 @@ async fn fail_with_wrong_stake_program() {
         AccountMeta::new(stake_pool_accounts.stake_pool.pubkey(), false),
         AccountMeta::new(stake_pool_accounts.validator_list.pubkey(), false),
         AccountMeta::new_readonly(stake_pool_accounts.withdraw_authority, false),
+        AccountMeta::new(stake_pool_accounts.reserve_stake.pubkey(), false),
         AccountMeta::new(validator_stake_account.stake_account, false),
         AccountMeta::new(user_stake_recipient.pubkey(), false),
         AccountMeta::new_readonly(new_authority, false),
@@ -366,6 +368,7 @@ async fn fail_with_wrong_token_program_id() {
             &stake_pool_accounts.stake_pool.pubkey(),
             &stake_pool_accounts.validator_list.pubkey(),
             &stake_pool_accounts.withdraw_authority,
+            &stake_pool_accounts.reserve_stake.pubkey(),
             &validator_stake_account.stake_account,
             &user_stake_recipient.pubkey(),
             &new_authority,
@@ -807,6 +810,9 @@ async fn success_with_reserve() {
     .await
     .unwrap();
 
+    let initial_decrease =
+        deposit_lamports * (MAX_RESERVE_FRACTION_NUMERATOR - 1) / MAX_RESERVE_FRACTION_DENOMINATOR;
+
     // decrease some stake
     let error = stake_pool_accounts
         .decrease_validator_stake(
@@ -815,7 +821,7 @@ async fn success_with_reserve() {
             &context.last_blockhash,
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
-            deposit_lamports - 1,
+            initial_decrease,
         )
         .await;
     assert!(error.is_none());
@@ -833,7 +839,7 @@ async fn success_with_reserve() {
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            &[validator_stake.vote.pubkey()],
+            &mut [validator_stake.vote.pubkey()],
             false,
         )
         .await;
@@ -871,7 +877,8 @@ async fn success_with_reserve() {
             &deposit_info.pool_account.pubkey(),
             &stake_pool_accounts.reserve_stake.pubkey(),
             &withdraw_destination_authority,
-            deposit_info.pool_tokens,
+            deposit_info.pool_tokens * (MAX_RESERVE_FRACTION_NUMERATOR - 1)
+                / MAX_RESERVE_FRACTION_DENOMINATOR,
         )
         .await
         .unwrap()
@@ -892,7 +899,7 @@ async fn success_with_reserve() {
             &context.last_blockhash,
             &validator_stake.stake_account,
             &validator_stake.transient_stake_account,
-            stake_rent + 1,
+            stake_rent + deposit_lamports - initial_decrease,
         )
         .await;
     assert!(error.is_none());
@@ -908,7 +915,7 @@ async fn success_with_reserve() {
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            &[validator_stake.vote.pubkey()],
+            &mut [validator_stake.vote.pubkey()],
             false,
         )
         .await;
@@ -1236,7 +1243,7 @@ async fn success_withdraw_from_transient() {
             &mut context.banks_client,
             &context.payer,
             &context.last_blockhash,
-            &[
+            &mut [
                 preferred_validator.vote.pubkey(),
                 validator_stake.vote.pubkey(),
             ],
