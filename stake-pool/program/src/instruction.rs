@@ -363,7 +363,7 @@ pub enum StakePoolInstruction {
     ///
     ///  0. `[w]` StakePool
     ///  1. `[s]` Manager
-    ///  2. '[]` New deposit authority pubkey or none => unset/set to default PDA
+    ///  2. '[]` New sol_deposit_authority pubkey or none
     SetDepositAuthority(DepositType),
 }
 
