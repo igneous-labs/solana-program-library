@@ -448,10 +448,10 @@ async fn fail_with_unknown_validator() {
         recent_blockhash,
         stake_pool_accounts,
         _,
-        _,
+        deposit_info,
         user_transfer_authority,
         user_stake_recipient,
-        _,
+        tokens_to_withdraw,
     ) = setup().await;
 
     let validator_stake_account =
@@ -537,7 +537,6 @@ async fn fail_with_unknown_validator() {
     .await;
 
     let new_authority = Pubkey::new_unique();
-
     let transaction_error = stake_pool_accounts
         .withdraw_stake(
             &mut banks_client,
@@ -545,10 +544,10 @@ async fn fail_with_unknown_validator() {
             &recent_blockhash,
             &user_stake_recipient.pubkey(),
             &user_transfer_authority,
-            &user_pool_account,
+            &deposit_info.pool_account.pubkey(),
             &validator_stake_account.stake_account,
             &new_authority,
-            tokens_to_burn,
+            tokens_to_withdraw,
         )
         .await
         .unwrap()

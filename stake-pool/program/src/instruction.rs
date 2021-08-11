@@ -28,6 +28,17 @@ pub enum PreferredValidatorType {
     Withdraw,
 }
 
+/// Defines which validator vote account is set during the
+/// `SetPreferredValidator` instruction
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, BorshSchema)]
+pub enum DepositType {
+    /// Set preferred validator for deposits
+    Stake,
+    /// Set preferred validator for withdraws
+    Sol,
+}
+
 /// Instructions supported by the StakePool program.
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, BorshSchema)]
@@ -352,15 +363,8 @@ pub enum StakePoolInstruction {
     ///
     ///  0. `[w]` StakePool
     ///  1. `[s]` Manager
-    ///  2. '[]` New sol_deposit_authority pubkey or none
-    SetSolDepositAuthority,
-
-    ///  (Manager only) Update stake deposit authority
-    ///
-    ///  0. `[w]` StakePool
-    ///  1. `[s]` Manager
-    ///  2. '[]` New stake_deposit_authority pubkey, or none (=> PDA authority)
-    SetStakeDepositAuthority,
+    ///  2. '[]` New deposit authority pubkey or none => unset/set to default PDA
+    SetDepositAuthority(DepositType),
 }
 
 /// Creates an 'initialize' instruction.
@@ -1272,11 +1276,11 @@ pub fn set_deposit_authority(
         program_id: *program_id,
         accounts,
         data: if for_stake_deposit {
-            StakePoolInstruction::SetStakeDepositAuthority
+            StakePoolInstruction::SetDepositAuthority(DepositType::Stake)
                 .try_to_vec()
                 .unwrap()
         } else {
-            StakePoolInstruction::SetSolDepositAuthority
+            StakePoolInstruction::SetDepositAuthority(DepositType::Sol)
                 .try_to_vec()
                 .unwrap()
         },
@@ -1300,7 +1304,30 @@ pub fn set_stake_deposit_authority(
     Instruction {
         program_id: *program_id,
         accounts,
-        data: StakePoolInstruction::SetStakeDepositAuthority
+        data: StakePoolInstruction::SetDepositAuthority(DepositType::Stake)
+            .try_to_vec()
+            .unwrap(),
+    }
+}
+
+/// Creates a 'set stake deposit authority' instruction.
+pub fn set_sol_deposit_authority(
+    program_id: &Pubkey,
+    stake_pool: &Pubkey,
+    manager: &Pubkey,
+    new_stake_deposit_authority: Option<&Pubkey>,
+) -> Instruction {
+    let mut accounts = vec![
+        AccountMeta::new(*stake_pool, false),
+        AccountMeta::new_readonly(*manager, true),
+    ];
+    if let Some(auth) = new_stake_deposit_authority {
+        accounts.push(AccountMeta::new_readonly(*auth, false))
+    }
+    Instruction {
+        program_id: *program_id,
+        accounts,
+        data: StakePoolInstruction::SetDepositAuthority(DepositType::Sol)
             .try_to_vec()
             .unwrap(),
     }

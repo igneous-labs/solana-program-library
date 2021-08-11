@@ -1,5 +1,6 @@
 //! Program state processor
 
+use crate::instruction::DepositType;
 use {
     crate::{
         error::StakePoolError,
@@ -1922,6 +1923,16 @@ impl Processor {
             .checked_sub(pool_tokens_referral_fee)
             .ok_or(StakePoolError::CalculationFailure)?;
 
+        if pool_tokens_user + pool_tokens_manager_deposit_fee + pool_tokens_referral_fee
+            != new_pool_tokens
+        {
+            return Err(StakePoolError::CalculationFailure.into());
+        }
+
+        if new_pool_tokens == 0 {
+            return Err(StakePoolError::DepositTooSmall.into());
+        }
+
         if pool_tokens_user > 0 {
             Self::token_mint_to(
                 stake_pool_info.key,
@@ -2070,6 +2081,12 @@ impl Processor {
             .checked_sub(pool_tokens_referral_fee)
             .ok_or(StakePoolError::CalculationFailure)?;
 
+        if pool_tokens_user + pool_tokens_manager_deposit_fee + pool_tokens_referral_fee
+            != new_pool_tokens
+        {
+            return Err(StakePoolError::CalculationFailure.into());
+        }
+
         Self::sol_transfer(
             from_user_lamports_info.clone(),
             reserve_stake_account_info.clone(),
@@ -2199,6 +2216,10 @@ impl Processor {
         let withdraw_lamports = stake_pool
             .calc_lamports_withdraw_amount(pool_tokens_burnt)
             .ok_or(StakePoolError::CalculationFailure)?;
+
+        if withdraw_lamports == 0 {
+            return Err(StakePoolError::WithdrawalTooSmall.into());
+        }
 
         let has_active_stake = validator_list
             .find::<ValidatorStakeInfo>(
@@ -2448,7 +2469,7 @@ impl Processor {
     fn process_set_deposit_authority(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
-        for_stake_deposit: bool,
+        deposit_type: DepositType,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let stake_pool_info = next_account_info(account_info_iter)?;
@@ -2464,12 +2485,13 @@ impl Processor {
             return Err(StakePoolError::InvalidState.into());
         }
         stake_pool.check_manager(manager_info)?;
-        if for_stake_deposit {
-            stake_pool.stake_deposit_authority = new_sol_deposit_authority.unwrap_or(
-                find_deposit_authority_program_address(program_id, stake_pool_info.key).0,
-            );
-        } else {
-            stake_pool.sol_deposit_authority = new_sol_deposit_authority;
+        match deposit_type {
+            DepositType::Stake => {
+                stake_pool.stake_deposit_authority = new_sol_deposit_authority.unwrap_or(
+                    find_deposit_authority_program_address(program_id, stake_pool_info.key).0,
+                );
+            }
+            DepositType::Sol => stake_pool.sol_deposit_authority = new_sol_deposit_authority,
         }
         stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
         Ok(())
@@ -2589,13 +2611,9 @@ impl Processor {
                 msg!("Instruction: DepositSol");
                 Self::process_deposit_sol(program_id, accounts, lamports)
             }
-            StakePoolInstruction::SetSolDepositAuthority => {
-                msg!("Instruction: SetSolDepositAuthority");
-                Self::process_set_deposit_authority(program_id, accounts, false)
-            }
-            StakePoolInstruction::SetStakeDepositAuthority => {
-                msg!("Instruction: SetStakeDepositAuthority");
-                Self::process_set_deposit_authority(program_id, accounts, true)
+            StakePoolInstruction::SetDepositAuthority(deposit_type) => {
+                msg!("Instruction: SetDepositAuthority");
+                Self::process_set_deposit_authority(program_id, accounts, deposit_type)
             }
         }
     }
@@ -2637,6 +2655,8 @@ impl PrintProgramError for StakePoolError {
             StakePoolError::IncorrectWithdrawVoteAddress => msg!("Error: The provided withdraw stake account is not the preferred deposit vote account"),
             StakePoolError::InvalidMintFreezeAuthority => msg!("Error: The mint has an invalid freeze authority"),
             StakePoolError::FeeIncreaseTooHigh => msg!("Error: The fee cannot increase by a factor exceeding the stipulated ratio"),
+            StakePoolError::WithdrawalTooSmall => msg!("Error: Not enough pool tokens provided to withdraw 1-lamport stake"),
+            StakePoolError::DepositTooSmall => msg!("Error: Not enough lamports provided for deposit to result in one pool token"),
             StakePoolError::InvalidStakeDepositAuthority => msg!("Error: Provided stake deposit authority does not match the program's"),
             StakePoolError::InvalidSolDepositAuthority => msg!("Error: Provided sol deposit authority does not match the program's"),
         }

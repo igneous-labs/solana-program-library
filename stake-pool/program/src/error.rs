@@ -102,6 +102,14 @@ pub enum StakePoolError {
     /// Proposed fee increase exceeds stipulated ratio
     #[error("FeeIncreaseTooHigh")]
     FeeIncreaseTooHigh,
+    /// Not enough pool tokens provided to withdraw stake with one lamport
+    #[error("WithdrawalTooSmall")]
+    WithdrawalTooSmall,
+    /// Not enough lamports provided for deposit to result in one pool token
+    #[error("DepositTooSmall")]
+    DepositTooSmall,
+
+    // 30.
     /// Provided stake deposit authority does not match the program's
     #[error("FeeIncreaseTooHigh")]
     InvalidStakeDepositAuthority,
