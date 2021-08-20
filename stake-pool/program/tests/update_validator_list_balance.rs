@@ -4,11 +4,20 @@ mod helpers;
 
 use {
     helpers::*,
-    solana_program::{borsh::try_from_slice_unchecked, program_pack::Pack, pubkey::Pubkey},
+    solana_program::{
+        borsh::try_from_slice_unchecked, instruction::InstructionError, program_pack::Pack,
+        pubkey::Pubkey,
+    },
     solana_program_test::*,
-    solana_sdk::signature::Signer,
+    solana_sdk::{
+        signature::Signer,
+        system_instruction,
+        transaction::{Transaction, TransactionError},
+    },
     spl_stake_pool::{
-        stake_program,
+        self,
+        error::StakePoolError,
+        instruction, stake_program,
         state::{StakePool, StakeStatus, ValidatorList},
         MAX_VALIDATORS_TO_UPDATE, MINIMUM_ACTIVE_STAKE,
     },
@@ -661,6 +670,67 @@ async fn success_with_burned_tokens() {
     let stake_pool = try_from_slice_unchecked::<StakePool>(&stake_pool_info.data).unwrap();
 
     assert_eq!(mint.supply, stake_pool.pool_token_supply);
+}
+
+enum CallingContext {
+    NotFirstInstruction,
+    MoreThanOneInstruction,
+}
+
+#[tokio::test]
+async fn fail_with_invalid_calling_context_not_first() {
+    fail_with_invalid_calling_context(CallingContext::NotFirstInstruction).await
+}
+
+#[tokio::test]
+async fn fail_with_invalid_calling_context_more_than_one() {
+    fail_with_invalid_calling_context(CallingContext::MoreThanOneInstruction).await
+}
+
+async fn fail_with_invalid_calling_context(calling_context: CallingContext) {
+    let (mut context, stake_pool_accounts, stake_accounts, _, _, _, _) = setup(1).await;
+
+    let mut ixs = vec![instruction::update_validator_list_balance(
+        &spl_stake_pool::id(),
+        &stake_pool_accounts.stake_pool.pubkey(),
+        &stake_pool_accounts.withdraw_authority,
+        &stake_pool_accounts.validator_list.pubkey(),
+        &stake_pool_accounts.reserve_stake.pubkey(),
+        &[stake_accounts[0].stake_account],
+        0,
+        false,
+    )];
+    let extra_ix =
+        system_instruction::transfer(&context.payer.pubkey(), &stake_accounts[0].stake_account, 1);
+
+    match calling_context {
+        CallingContext::NotFirstInstruction => ixs.insert(0, extra_ix),
+        CallingContext::MoreThanOneInstruction => ixs.push(extra_ix),
+    }
+
+    let transaction = Transaction::new_signed_with_payer(
+        &ixs,
+        Some(&context.payer.pubkey()),
+        &[&context.payer],
+        context.last_blockhash,
+    );
+    let error = context
+        .banks_client
+        .process_transaction(transaction)
+        .await
+        .err()
+        .unwrap()
+        .unwrap();
+
+    match error {
+        TransactionError::InstructionError(_, InstructionError::Custom(error_index)) => {
+            let program_error = StakePoolError::InvalidCallingContext as u32;
+            assert_eq!(error_index, program_error);
+        }
+        _ => panic!(
+            "Wrong error occurs while try to update validator list with wrong calling context"
+        ),
+    }
 }
 
 #[tokio::test]
