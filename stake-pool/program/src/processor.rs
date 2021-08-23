@@ -1357,40 +1357,53 @@ impl Processor {
         let account_info_iter = &mut accounts.iter();
         let stake_pool_info = next_account_info(account_info_iter)?;
         let validator_list_info = next_account_info(account_info_iter)?;
+        {
+            let mut validator_list_data = validator_list_info.data.borrow_mut();
 
-        let mut validator_list_data = validator_list_info.data.borrow_mut();
+            let (mut header, validator_list) =
+                ValidatorListHeader::deserialize_vec(&mut validator_list_data)?;
+            if !header.is_valid() {
+                return Err(StakePoolError::InvalidState.into());
+            }
 
-        let (mut header, validator_list) =
-            ValidatorListHeader::deserialize_vec(&mut validator_list_data)?;
-        if !header.is_valid() {
-            return Err(StakePoolError::InvalidState.into());
-        }
+            let len = validator_list.len();
 
-        let len = validator_list.len();
+            let (_, vec_slice) = validator_list.data.split_at_mut(4);
 
-        let (_, vec_slice) = validator_list.data.split_at_mut(4);
+            const NEW_BYTES: usize = 73;
+            const OLD_BYTES: usize = 57;
+            const FRONT_BYTES: usize = 24;
+            const MID_BYTES: usize = 16;
+            const BACK_BYTES: usize = 33;
 
-        const NEW_BYTES: usize = 73;
-        const OLD_BYTES: usize = 57;
-        for i in (0usize..len as usize).rev() {
-            unsafe {
-                sol_memmove(
-                    vec_slice[i * NEW_BYTES..(i + 1) * NEW_BYTES].as_mut_ptr(),
-                    vec_slice[i * OLD_BYTES..(i + 1) * OLD_BYTES].as_mut_ptr(),
-                    OLD_BYTES,
-                );
-                sol_memset(
-                    &mut vec_slice[i * NEW_BYTES + OLD_BYTES..(i + 1) * NEW_BYTES],
-                    0u8,
-                    NEW_BYTES - OLD_BYTES
-                );
+            for i in (0usize..len as usize).rev() {
+                unsafe {
+                    sol_memmove(
+                        vec_slice[i * NEW_BYTES..(i + 1) * NEW_BYTES].as_mut_ptr(),
+                        vec_slice[i * OLD_BYTES..(i + 1) * OLD_BYTES].as_mut_ptr(),
+                        OLD_BYTES,
+                    );
+                    sol_memmove(
+                        vec_slice[i * NEW_BYTES + FRONT_BYTES + MID_BYTES..(i + 1) * NEW_BYTES].as_mut_ptr(),
+                        vec_slice[i * OLD_BYTES + FRONT_BYTES..i * OLD_BYTES + FRONT_BYTES + BACK_BYTES].as_mut_ptr(),
+                        BACK_BYTES,
+                    );
+                    sol_memset(
+                        &mut vec_slice[i * OLD_BYTES + FRONT_BYTES..i * OLD_BYTES + FRONT_BYTES + MID_BYTES],
+                        0u8,
+                        MID_BYTES
+                    );
+                }
             }
         }
 
-        header.max_validators = header.max_validators * 57 / 73;
-        Ok(())
+        let mut validator_list =
+            try_from_slice_unchecked::<ValidatorList>(&validator_list_info.data.borrow())?;
 
-        // validator_list.serialize(&mut *validator_list_info.data.borrow_mut())?;
+        validator_list.header.max_validators = validator_list.header.max_validators * 57 / 73;
+        validator_list.serialize(&mut *validator_list_info.data.borrow_mut())?;
+
+        Ok(())
     }
 
     /// Processes `UpdateValidatorListBalance` instruction.
