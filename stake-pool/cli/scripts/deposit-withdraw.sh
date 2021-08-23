@@ -71,4 +71,4 @@ sleep 24
 echo "Depositing stakes into stake pool"
 deposit_stakes $stake_pool_pubkey $validator_list
 echo "Withdrawing stakes from stake pool"
-withdraw_stakes $stake_pool_pubkey $validator_list $half_sol_amount
+# withdraw_stakes $stake_pool_pubkey $validator_list $half_sol_amount

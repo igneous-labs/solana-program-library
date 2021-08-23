@@ -28,6 +28,7 @@ use {
         program_error::ProgramError,
         program_pack::Pack,
         pubkey::Pubkey,
+        program_memory::{sol_memmove, sol_memset},
         rent::Rent,
         stake_history::StakeHistory,
         system_instruction, system_program,
@@ -1349,6 +1350,50 @@ impl Processor {
     }
 
     /// Processes `UpdateValidatorListBalance` instruction.
+    fn process_migrate_validator_list(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+    ) -> ProgramResult {
+        let account_info_iter = &mut accounts.iter();
+        let stake_pool_info = next_account_info(account_info_iter)?;
+        let validator_list_info = next_account_info(account_info_iter)?;
+
+        let mut validator_list_data = validator_list_info.data.borrow_mut();
+
+        let (mut header, validator_list) =
+            ValidatorListHeader::deserialize_vec(&mut validator_list_data)?;
+        if !header.is_valid() {
+            return Err(StakePoolError::InvalidState.into());
+        }
+
+        let len = validator_list.len();
+
+        let (_, vec_slice) = validator_list.data.split_at_mut(4);
+
+        const NEW_BYTES: usize = 73;
+        const OLD_BYTES: usize = 57;
+        for i in (0usize..len as usize).rev() {
+            unsafe {
+                sol_memmove(
+                    vec_slice[i * NEW_BYTES..(i + 1) * NEW_BYTES].as_mut_ptr(),
+                    vec_slice[i * OLD_BYTES..(i + 1) * OLD_BYTES].as_mut_ptr(),
+                    OLD_BYTES,
+                );
+                sol_memset(
+                    &mut vec_slice[i * NEW_BYTES + OLD_BYTES..(i + 1) * NEW_BYTES],
+                    0u8,
+                    NEW_BYTES - OLD_BYTES
+                );
+            }
+        }
+
+        header.max_validators = header.max_validators * 57 / 73;
+        Ok(())
+
+        // validator_list.serialize(&mut *validator_list_info.data.borrow_mut())?;
+    }
+
+    /// Processes `UpdateValidatorListBalance` instruction.
     fn process_update_validator_list_balance(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -2593,6 +2638,10 @@ impl Processor {
             StakePoolInstruction::DepositStake => {
                 msg!("Instruction: DepositStake");
                 Self::process_deposit_stake(program_id, accounts)
+            }
+            StakePoolInstruction::MigrateValidatorList => {
+                msg!("Instruction: MigrateValidatorList");
+                Self::process_migrate_validator_list(program_id, accounts)
             }
             StakePoolInstruction::WithdrawStake(amount) => {
                 msg!("Instruction: WithdrawStake");

@@ -351,6 +351,10 @@ pub enum StakePoolInstruction {
     ///  1. `[s]` Manager
     ///  2. '[]` New sol_deposit_authority pubkey or none
     SetDepositAuthority(DepositType),
+
+    ///  0. `[]` Stake pool
+    ///  2. `[w]` Validator stake list storage account
+    MigrateValidatorList,
 }
 
 /// Creates an 'initialize' instruction.
@@ -754,6 +758,26 @@ pub fn update_validator_list_balance(
             start_index,
             no_merge,
         }
+        .try_to_vec()
+        .unwrap(),
+    }
+}
+
+
+/// Creates `UpdateValidatorListBalance` instruction (update validator stake account balances)
+pub fn migrate_validator_list(
+    program_id: &Pubkey,
+    stake_pool: &Pubkey,
+    validator_list: &Pubkey,
+) -> Instruction {
+    let mut accounts = vec![
+        AccountMeta::new_readonly(*stake_pool, false),
+        AccountMeta::new(*validator_list, false),
+    ];
+    Instruction {
+        program_id: *program_id,
+        accounts,
+        data: StakePoolInstruction::MigrateValidatorList
         .try_to_vec()
         .unwrap(),
     }

@@ -330,6 +330,28 @@ fn command_create_pool(
     Ok(())
 }
 
+
+fn command_migrate_list(
+    config: &Config,
+    stake_pool_address: &Pubkey,
+) -> CommandResult {
+    let stake_pool = get_stake_pool(&config.rpc_client, stake_pool_address)?;
+    let transaction = checked_transaction_with_signers(
+        config,
+        &[
+            // Create new validator stake account address
+            spl_stake_pool::instruction::migrate_validator_list(
+                &spl_stake_pool::id(),
+                stake_pool_address,
+                &stake_pool.validator_list,
+            ),
+        ],
+        &[config.fee_payer.as_ref(), config.staker.as_ref()],
+    )?;
+    send_transaction(config, transaction)?;
+    Ok(())
+}
+
 fn command_vsa_create(
     config: &Config,
     stake_pool_address: &Pubkey,
@@ -1556,6 +1578,18 @@ fn main() {
                      Defaults to the client keypair.",
                 ),
         )
+        .subcommand(SubCommand::with_name("migrate")
+            .about("migrate")
+            .arg(
+                Arg::with_name("pool")
+                    .index(1)
+                    .validator(is_pubkey)
+                    .value_name("POOL_ADDRESS")
+                    .takes_value(true)
+                    .required(true)
+                    .help("Stake pool address"),
+            )
+        )
         .subcommand(SubCommand::with_name("create-pool")
             .about("Create a new stake pool")
             .arg(
@@ -2371,6 +2405,10 @@ fn main() {
             let no_merge = arg_matches.is_present("no_merge");
             let force = arg_matches.is_present("force");
             command_update(&config, &stake_pool_address, force, no_merge)
+        }
+        ("migrate", Some(arg_matches)) => {
+            let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
+            command_migrate_list(&config, &stake_pool_address)
         }
         ("withdraw-stake", Some(arg_matches)) => {
             let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
