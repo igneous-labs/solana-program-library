@@ -1385,11 +1385,11 @@ impl Processor {
                     );
                     sol_memmove(
                         vec_slice[i * NEW_BYTES + FRONT_BYTES + MID_BYTES..(i + 1) * NEW_BYTES].as_mut_ptr(),
-                        vec_slice[i * OLD_BYTES + FRONT_BYTES..i * OLD_BYTES + FRONT_BYTES + BACK_BYTES].as_mut_ptr(),
+                        vec_slice[i * NEW_BYTES + FRONT_BYTES..i * NEW_BYTES + FRONT_BYTES + BACK_BYTES].as_mut_ptr(),
                         BACK_BYTES,
                     );
                     sol_memset(
-                        &mut vec_slice[i * OLD_BYTES + FRONT_BYTES..i * OLD_BYTES + FRONT_BYTES + MID_BYTES],
+                        &mut vec_slice[i * NEW_BYTES + FRONT_BYTES..i * NEW_BYTES + FRONT_BYTES + MID_BYTES],
                         0u8,
                         MID_BYTES
                     );
