@@ -32,7 +32,7 @@ setup_pool () {
 
   $spl_stake_pool create-pool --fee-numerator 3 --fee-denominator 100 \
     --withdrawal-fee-numerator 5 --withdrawal-fee-denominator 1000 \
-    --max-validators $max_validators \
+    --max-validators 4 \
     --pool-keypair $stake_pool_keyfile \
     --mint-keypair $mint_keyfile
 }
