@@ -10,7 +10,7 @@ use {
     },
     solana_program_test::*,
     solana_sdk::{
-        signature::Signer,
+        signature::{Keypair, Signer},
         system_instruction,
         transaction::{Transaction, TransactionError},
     },
@@ -468,6 +468,7 @@ async fn merge_transient_stake_after_remove() {
     let stake_rent = rent.minimum_balance(std::mem::size_of::<stake_program::StakeState>());
     let deactivated_lamports = lamports;
     let new_authority = Pubkey::new_unique();
+    let destination_stake = Keypair::new();
     // Decrease and remove all validators
     for stake_account in &stake_accounts {
         let error = stake_pool_accounts
@@ -489,6 +490,7 @@ async fn merge_transient_stake_after_remove() {
                 &new_authority,
                 &stake_account.stake_account,
                 &stake_account.transient_stake_account,
+                &destination_stake,
             )
             .await;
         assert!(error.is_none());
