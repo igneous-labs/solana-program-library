@@ -13,5 +13,5 @@
 9. Run migration instruction
 10. Checkout the new version
 11. Build program with `cargo build-bpf --manifest-path ../../program/Cargo.toml`
-12. Deploy program with `solana program deploy --program-id /home/dhy1996/data/socean/stake-account.json ../../../target/deploy/spl_stake_pool.so`
+12. Deploy program with `solana program deploy --program-id program.json ../../../target/deploy/spl_stake_pool.so`
 13. Build cli with `cargo build --manifest-path ../Cargo.toml` and make sure everything works with `deposit-withdraw.sh` and cli. 
