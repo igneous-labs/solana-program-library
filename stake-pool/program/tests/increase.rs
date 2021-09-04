@@ -14,7 +14,7 @@ use {
         signature::{Keypair, Signer},
         transaction::{Transaction, TransactionError},
     },
-    spl_stake_pool::{error::StakePoolError, id, instruction, stake_program},
+    spl_stake_pool::{error::StakePoolError, id, instruction, stake_program, MINIMUM_ACTIVE_STAKE},
 };
 
 async fn setup() -> (
@@ -334,8 +334,7 @@ async fn fail_with_small_lamport_amount() {
         _reserve_lamports,
     ) = setup().await;
 
-    let rent = banks_client.get_rent().await.unwrap();
-    let stake_rent = rent.minimum_balance(std::mem::size_of::<stake_program::StakeState>());
+    let lamports = MINIMUM_ACTIVE_STAKE - 1;
 
     let error = stake_pool_accounts
         .increase_validator_stake(
@@ -344,7 +343,7 @@ async fn fail_with_small_lamport_amount() {
             &recent_blockhash,
             &validator_stake.transient_stake_account,
             &validator_stake.vote.pubkey(),
-            stake_rent,
+            lamports,
         )
         .await
         .unwrap()
