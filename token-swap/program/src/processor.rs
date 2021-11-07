@@ -2456,6 +2456,45 @@ mod tests {
             );
         }
 
+        // deposit authority is not signer
+        {
+            let mut instruction = initialize(
+                &SWAP_PROGRAM_ID,
+                &spl_token::id(),
+                &accounts.swap_key,
+                &accounts.authority_key,
+                &accounts.token_a_key,
+                &accounts.token_b_key,
+                &accounts.pool_mint_key,
+                &accounts.pool_fee_key,
+                &accounts.pool_token_key,
+                &accounts.deposit_authority,
+                accounts.fees.clone(),
+                accounts.swap_curve.clone(),
+            )
+            .unwrap();
+            if let Some(deposit_authority_meta) = instruction.accounts.get_mut(7) {
+                deposit_authority_meta.is_signer = false
+            }
+            assert_eq!(
+                Err(SwapError::DepositAuthorityNotSigner.into()),
+                do_process_instruction(
+                    instruction,
+                    vec![
+                        &mut accounts.swap_account,
+                        &mut Account::default(),
+                        &mut accounts.token_a_account,
+                        &mut accounts.token_b_account,
+                        &mut accounts.pool_mint_account,
+                        &mut accounts.pool_fee_account,
+                        &mut accounts.pool_token_account,
+                        &mut accounts.deposit_authority_account,
+                        &mut Account::default(),
+                    ],
+                )
+            );
+        }
+
         // create swap with same token A and B
         {
             let (_token_a_repeat_key, token_a_repeat_account) = mint_token(
