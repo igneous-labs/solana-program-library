@@ -218,6 +218,7 @@ impl Processor {
         let pool_mint_info = next_account_info(account_info_iter)?;
         let fee_account_info = next_account_info(account_info_iter)?;
         let destination_info = next_account_info(account_info_iter)?;
+        let deposity_authority_info = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
 
         let token_program_id = *token_program_info.key;
@@ -294,6 +295,12 @@ impl Processor {
         fees.validate()?;
         swap_curve.calculator.validate()?;
 
+        // Verify that the deposit authority is a signer to
+        // ensure Pool creator can deposit
+        if !deposity_authority_info.is_signer {
+            return Err(SwapError::DepositAuthorityNotSigner.into());
+        }
+
         let initial_amount = swap_curve.calculator.new_pool_supply();
 
         Self::token_mint_to(
@@ -318,7 +325,7 @@ impl Processor {
             pool_fee_account: *fee_account_info.key,
             fees,
             swap_curve,
-            deposit_authority: Pubkey::new_unique(), //TODO: Properly init from initialize accounts
+            deposit_authority: *deposity_authority_info.key,
         });
         SwapVersion::pack(obj, &mut swap_info.data.borrow_mut())?;
         Ok(())
@@ -1130,6 +1137,12 @@ impl PrintProgramError for SwapError {
             SwapError::UnsupportedCurveOperation => {
                 msg!("Error: The operation cannot be performed on the given curve")
             }
+            SwapError::DepositAuthorityNotSigner => {
+                msg!("Error: The provided deposit authority did not sign the transaction")
+            }
+            SwapError::InvalidDepositAuthority => {
+                msg!("Error: The provided deposit authority is not valid for this pool")
+            }
         }
     }
 }
@@ -1156,7 +1169,7 @@ mod tests {
             withdraw_all_token_types, withdraw_single_token_type_exact_amount_out,
         },
     };
-    use solana_program::{instruction::Instruction, program_stubs, rent::Rent};
+    use solana_program::{instruction::Instruction, program_stubs, rent::Rent, system_program};
     use solana_sdk::account::{create_account_for_test, create_is_signer_account_infos, Account};
     use spl_token::{
         error::TokenError,
@@ -1222,6 +1235,8 @@ mod tests {
     struct SwapAccountInfo {
         bump_seed: u8,
         authority_key: Pubkey,
+        deposit_authority: Pubkey,
+        deposit_authority_account: Account,
         fees: Fees,
         swap_curve: SwapCurve,
         swap_key: Pubkey,
@@ -1254,6 +1269,9 @@ mod tests {
             let swap_account = Account::new(0, SwapVersion::LATEST_LEN, &SWAP_PROGRAM_ID);
             let (authority_key, bump_seed) =
                 Pubkey::find_program_address(&[&swap_key.to_bytes()[..]], &SWAP_PROGRAM_ID);
+
+            let deposit_authority = Pubkey::new_unique();
+            let deposit_authority_account = Account::new(0, 0, &system_program::id());
 
             let (pool_mint_key, mut pool_mint_account) =
                 create_mint(&spl_token::id(), &authority_key, None);
@@ -1297,6 +1315,8 @@ mod tests {
             SwapAccountInfo {
                 bump_seed,
                 authority_key,
+                deposit_authority,
+                deposit_authority_account,
                 fees,
                 swap_curve,
                 swap_key,
@@ -1330,6 +1350,7 @@ mod tests {
                     &self.pool_mint_key,
                     &self.pool_fee_key,
                     &self.pool_token_key,
+                    &self.deposit_authority,
                     self.fees.clone(),
                     self.swap_curve.clone(),
                 )
@@ -1342,6 +1363,7 @@ mod tests {
                     &mut self.pool_mint_account,
                     &mut self.pool_fee_account,
                     &mut self.pool_token_account,
+                    &mut self.deposit_authority_account,
                     &mut Account::default(),
                 ],
             )
@@ -2414,6 +2436,7 @@ mod tests {
                         &accounts.pool_mint_key,
                         &accounts.pool_fee_key,
                         &accounts.pool_token_key,
+                        &accounts.deposit_authority,
                         accounts.fees.clone(),
                         accounts.swap_curve.clone(),
                     )
@@ -2426,6 +2449,7 @@ mod tests {
                         &mut accounts.pool_mint_account,
                         &mut accounts.pool_fee_account,
                         &mut accounts.pool_token_account,
+                        &mut accounts.deposit_authority_account,
                         &mut Account::default(),
                     ],
                 )
@@ -2599,6 +2623,7 @@ mod tests {
                         &accounts.pool_mint_key,
                         &accounts.pool_fee_key,
                         &accounts.pool_token_key,
+                        &accounts.deposit_authority,
                         accounts.fees.clone(),
                         accounts.swap_curve.clone(),
                     )
@@ -2611,6 +2636,7 @@ mod tests {
                         &mut accounts.pool_mint_account,
                         &mut accounts.pool_fee_account,
                         &mut accounts.pool_token_account,
+                        &mut accounts.deposit_authority_account,
                         &mut Account::default(),
                     ],
                     &constraints,
@@ -2670,6 +2696,7 @@ mod tests {
                         &accounts.pool_mint_key,
                         &accounts.pool_fee_key,
                         &accounts.pool_token_key,
+                        &accounts.deposit_authority,
                         accounts.fees.clone(),
                         accounts.swap_curve.clone(),
                     )
@@ -2682,6 +2709,7 @@ mod tests {
                         &mut accounts.pool_mint_account,
                         &mut accounts.pool_fee_account,
                         &mut accounts.pool_token_account,
+                        &mut accounts.deposit_authority_account,
                         &mut Account::default(),
                     ],
                     &constraints,
@@ -2737,6 +2765,7 @@ mod tests {
                     &accounts.pool_mint_key,
                     &accounts.pool_fee_key,
                     &accounts.pool_token_key,
+                    &accounts.deposit_authority,
                     accounts.fees,
                     accounts.swap_curve.clone(),
                 )
@@ -2749,6 +2778,7 @@ mod tests {
                     &mut accounts.pool_mint_account,
                     &mut accounts.pool_fee_account,
                     &mut accounts.pool_token_account,
+                    &mut accounts.deposit_authority_account,
                     &mut Account::default(),
                 ],
                 &constraints,
@@ -5706,6 +5736,7 @@ mod tests {
                 &accounts.pool_mint_key,
                 &accounts.pool_fee_key,
                 &accounts.pool_token_key,
+                &accounts.deposit_authority,
                 accounts.fees.clone(),
                 accounts.swap_curve.clone(),
             )
@@ -5718,6 +5749,7 @@ mod tests {
                 &mut accounts.pool_mint_account,
                 &mut accounts.pool_fee_account,
                 &mut accounts.pool_token_account,
+                &mut accounts.deposit_authority_account,
                 &mut Account::default(),
             ],
             &constraints,

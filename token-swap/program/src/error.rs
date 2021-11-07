@@ -102,6 +102,14 @@ pub enum SwapError {
     /// The operation cannot be performed on the given curve
     #[error("The operation cannot be performed on the given curve")]
     UnsupportedCurveOperation,
+
+    // 28.
+    /// The provided deposit authority did not sign the transaction
+    #[error("The provided deposit authority did not sign the transaction")]
+    DepositAuthorityNotSigner,
+    /// The provided deposit authority is not valid for this pool
+    #[error("The provided deposit authority is not valid for this pool")]
+    InvalidDepositAuthority,
 }
 impl From<SwapError> for ProgramError {
     fn from(e: SwapError) -> Self {

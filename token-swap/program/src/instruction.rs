@@ -105,7 +105,8 @@ pub enum SwapInstruction {
     ///   Must be empty, not owned by swap authority
     ///   6. `[writable]` Pool Token Account to deposit the initial pool token
     ///   supply.  Must be empty, not owned by swap authority.
-    ///   7. '[]` Token program id
+    ///   7. `[signer]` deposit_authority. Keypair used to authorize deposits into the pool
+    ///   8. '[]` Token program id
     Initialize(Initialize),
 
     ///   Swap the tokens in the pool.
@@ -339,6 +340,7 @@ pub fn initialize(
     pool_pubkey: &Pubkey,
     fee_pubkey: &Pubkey,
     destination_pubkey: &Pubkey,
+    deposit_authority: &Pubkey,
     fees: Fees,
     swap_curve: SwapCurve,
 ) -> Result<Instruction, ProgramError> {
@@ -353,6 +355,7 @@ pub fn initialize(
         AccountMeta::new(*pool_pubkey, false),
         AccountMeta::new_readonly(*fee_pubkey, false),
         AccountMeta::new(*destination_pubkey, false),
+        AccountMeta::new(*deposit_authority, true),
         AccountMeta::new_readonly(*token_program_id, false),
     ];
 
