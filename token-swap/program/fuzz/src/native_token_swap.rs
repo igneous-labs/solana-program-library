@@ -75,6 +75,8 @@ impl NativeTokenSwap {
             &authority_account.key,
             token_b_amount,
         );
+        let mut deposit_authority = NativeAccountData::new(0, system_program::id());
+        deposit_authority.is_signer = true;
 
         let init_instruction = instruction::initialize(
             &spl_token_swap::id(),
@@ -86,6 +88,7 @@ impl NativeTokenSwap {
             &pool_mint_account.key,
             &pool_fee_account.key,
             &pool_token_account.key,
+            &deposit_authority.key,
             fees.clone(),
             swap_curve.clone(),
         )
@@ -101,6 +104,7 @@ impl NativeTokenSwap {
                 pool_mint_account.as_account_info(),
                 pool_fee_account.as_account_info(),
                 pool_token_account.as_account_info(),
+                deposit_authority.as_account_info(),
                 token_program_account.as_account_info(),
             ],
         )
