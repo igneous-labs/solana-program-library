@@ -278,6 +278,10 @@ impl NativeTokenSwap {
     ) -> ProgramResult {
         let mut user_transfer_account = NativeAccountData::new(0, system_program::id());
         user_transfer_account.is_signer = true;
+
+        let mut deposit_authority = NativeAccountData::new(0, system_program::id());
+        deposit_authority.is_signer = true;
+
         do_process_instruction(
             approve(
                 &self.token_program_account.key,
@@ -332,6 +336,7 @@ impl NativeTokenSwap {
             &self.token_b_account.key,
             &self.pool_mint_account.key,
             &pool_account.key,
+            &deposit_authority.key,
             instruction,
         )
         .unwrap();
@@ -348,6 +353,7 @@ impl NativeTokenSwap {
                 self.token_b_account.as_account_info(),
                 self.pool_mint_account.as_account_info(),
                 pool_account.as_account_info(),
+                deposit_authority.as_account_info(),
                 self.token_program_account.as_account_info(),
             ],
         )
