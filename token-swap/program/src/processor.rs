@@ -763,6 +763,7 @@ impl Processor {
         let swap_token_b_info = next_account_info(account_info_iter)?;
         let pool_mint_info = next_account_info(account_info_iter)?;
         let destination_info = next_account_info(account_info_iter)?;
+        let deposit_authority = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
 
         let token_swap = SwapVersion::unpack(&swap_info.data.borrow())?;
@@ -798,7 +799,7 @@ impl Processor {
             source_a_info,
             source_b_info,
             None,
-            None, //TODO: implement authority check for deposit single
+            Some(deposit_authority),
         )?;
 
         let pool_mint = Self::unpack_mint(pool_mint_info, token_swap.token_program_id())?;
@@ -1720,24 +1721,31 @@ mod tests {
             )
             .unwrap();
 
+            let mut deposit_instruction = deposit_single_token_type_exact_amount_in(
+                &SWAP_PROGRAM_ID,
+                &spl_token::id(),
+                &self.swap_key,
+                &self.authority_key,
+                &user_transfer_authority_key,
+                deposit_account_key,
+                &self.token_a_key,
+                &self.token_b_key,
+                &self.pool_mint_key,
+                deposit_pool_key,
+                &self.deposit_authority,
+                DepositSingleTokenTypeExactAmountIn {
+                    source_token_amount,
+                    minimum_pool_token_amount,
+                },
+            )
+            .unwrap();
+
+            if let Some(deposit_authority_meta) = deposit_instruction.accounts.get_mut(8) {
+                deposit_authority_meta.is_signer = self.deposit_authority_is_signer;
+            }
+
             do_process_instruction(
-                deposit_single_token_type_exact_amount_in(
-                    &SWAP_PROGRAM_ID,
-                    &spl_token::id(),
-                    &self.swap_key,
-                    &self.authority_key,
-                    &user_transfer_authority_key,
-                    deposit_account_key,
-                    &self.token_a_key,
-                    &self.token_b_key,
-                    &self.pool_mint_key,
-                    deposit_pool_key,
-                    DepositSingleTokenTypeExactAmountIn {
-                        source_token_amount,
-                        minimum_pool_token_amount,
-                    },
-                )
-                .unwrap(),
+                deposit_instruction,
                 vec![
                     &mut self.swap_account,
                     &mut Account::default(),
@@ -1747,6 +1755,7 @@ mod tests {
                     &mut self.token_b_account,
                     &mut self.pool_mint_account,
                     &mut deposit_pool_account,
+                    &mut self.deposit_authority_account,
                     &mut Account::default(),
                 ],
             )
@@ -4488,6 +4497,59 @@ mod tests {
             accounts.authority_key = old_authority;
         }
 
+        // deposit authority doesn't match
+        {
+            let (
+                token_a_key,
+                mut token_a_account,
+                _token_b_key,
+                _token_b_account,
+                pool_key,
+                mut pool_account,
+            ) = accounts.setup_token_accounts(&user_key, &depositor_key, deposit_a, deposit_b, 0);
+            let original_deposit_authority = accounts.deposit_authority;
+            accounts.deposit_authority = Pubkey::new_unique();
+            assert_eq!(
+                Err(SwapError::InvalidDepositAuthority.into()),
+                accounts.deposit_single_token_type_exact_amount_in(
+                    &depositor_key,
+                    &token_a_key,
+                    &mut token_a_account,
+                    &pool_key,
+                    &mut pool_account,
+                    deposit_a,
+                    pool_amount,
+                )
+            );
+            accounts.deposit_authority = original_deposit_authority;
+        }
+
+        // deposit authority isn't signer
+        {
+            let (
+                token_a_key,
+                mut token_a_account,
+                _token_b_key,
+                _token_b_account,
+                pool_key,
+                mut pool_account,
+            ) = accounts.setup_token_accounts(&user_key, &depositor_key, deposit_a, deposit_b, 0);
+            accounts.deposit_authority_is_signer = false;
+            assert_eq!(
+                Err(SwapError::DepositAuthorityNotSigner.into()),
+                accounts.deposit_single_token_type_exact_amount_in(
+                    &depositor_key,
+                    &token_a_key,
+                    &mut token_a_account,
+                    &pool_key,
+                    &mut pool_account,
+                    deposit_a,
+                    pool_amount,
+                )
+            );
+            accounts.deposit_authority_is_signer = true;
+        }
+
         // not enough token A / B
         {
             let (
@@ -4579,6 +4641,7 @@ mod tests {
                         &accounts.token_b_key,
                         &accounts.pool_mint_key,
                         &pool_key,
+                        &accounts.deposit_authority,
                         DepositSingleTokenTypeExactAmountIn {
                             source_token_amount: deposit_a,
                             minimum_pool_token_amount: pool_amount,
@@ -4594,6 +4657,7 @@ mod tests {
                         &mut accounts.token_b_account,
                         &mut accounts.pool_mint_account,
                         &mut pool_account,
+                        &mut accounts.deposit_authority_account,
                         &mut Account::default(),
                     ],
                 )
@@ -4625,6 +4689,7 @@ mod tests {
                         &accounts.token_b_key,
                         &accounts.pool_mint_key,
                         &pool_key,
+                        &accounts.deposit_authority,
                         DepositSingleTokenTypeExactAmountIn {
                             source_token_amount: deposit_a,
                             minimum_pool_token_amount: pool_amount,
@@ -4640,6 +4705,7 @@ mod tests {
                         &mut accounts.token_b_account,
                         &mut accounts.pool_mint_account,
                         &mut pool_account,
+                        &mut accounts.deposit_authority_account,
                         &mut Account::default(),
                     ],
                 )

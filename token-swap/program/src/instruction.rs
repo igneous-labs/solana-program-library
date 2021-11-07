@@ -170,7 +170,8 @@ pub enum SwapInstruction {
     ///   5. `[writable]` token_b Swap Account, may deposit INTO.
     ///   6. `[writable]` Pool MINT account, swap authority is the owner.
     ///   7. `[writable]` Pool Account to deposit the generated tokens, user is the owner.
-    ///   8. '[]` Token program id
+    ///   8. `[signer]` deposit_authority, used to authorize deposits into the pool
+    ///   9. '[]` Token program id
     DepositSingleTokenTypeExactAmountIn(DepositSingleTokenTypeExactAmountIn),
 
     ///   Withdraw one token type from the pool at the current ratio given the
@@ -457,6 +458,7 @@ pub fn deposit_single_token_type_exact_amount_in(
     swap_token_b_pubkey: &Pubkey,
     pool_mint_pubkey: &Pubkey,
     destination_pubkey: &Pubkey,
+    deposit_authority: &Pubkey,
     instruction: DepositSingleTokenTypeExactAmountIn,
 ) -> Result<Instruction, ProgramError> {
     let data = SwapInstruction::DepositSingleTokenTypeExactAmountIn(instruction).pack();
@@ -470,6 +472,7 @@ pub fn deposit_single_token_type_exact_amount_in(
         AccountMeta::new(*swap_token_b_pubkey, false),
         AccountMeta::new(*pool_mint_pubkey, false),
         AccountMeta::new(*destination_pubkey, false),
+        AccountMeta::new(*deposit_authority, true),
         AccountMeta::new_readonly(*token_program_id, false),
     ];
 
