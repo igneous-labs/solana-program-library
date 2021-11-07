@@ -37,6 +37,10 @@ pub trait SwapState {
     fn fees(&self) -> &Fees;
     /// Curve associated with swap
     fn swap_curve(&self) -> &SwapCurve;
+
+    /// Deposit authority for the Swap. Returns an option in case
+    ///  the swap version does not utitlize a deposit authority
+    fn deposity_authority(&self) -> &Pubkey;
 }
 
 /// All versions of SwapState
@@ -174,6 +178,10 @@ impl SwapState for SwapV1 {
 
     fn swap_curve(&self) -> &SwapCurve {
         &self.swap_curve
+    }
+
+    fn deposity_authority(&self) -> &Pubkey {
+        &self.deposit_authority
     }
 }
 

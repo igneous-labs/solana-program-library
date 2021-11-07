@@ -137,7 +137,8 @@ pub enum SwapInstruction {
     ///   6. `[writable]` token_b Base Account to deposit into.
     ///   7. `[writable]` Pool MINT account, swap authority is the owner.
     ///   8. `[writable]` Pool Account to deposit the generated tokens, user is the owner.
-    ///   9. '[]` Token program id
+    ///   9. `[signer]` deposit_authority, used to authorize deposits into the pool
+    ///   10. '[]` Token program id
     DepositAllTokenTypes(DepositAllTokenTypes),
 
     ///   Withdraw both types of tokens from the pool at the current ratio, given
@@ -379,6 +380,7 @@ pub fn deposit_all_token_types(
     swap_token_b_pubkey: &Pubkey,
     pool_mint_pubkey: &Pubkey,
     destination_pubkey: &Pubkey,
+    deposit_authority: &Pubkey,
     instruction: DepositAllTokenTypes,
 ) -> Result<Instruction, ProgramError> {
     let data = SwapInstruction::DepositAllTokenTypes(instruction).pack();
@@ -393,6 +395,7 @@ pub fn deposit_all_token_types(
         AccountMeta::new(*swap_token_b_pubkey, false),
         AccountMeta::new(*pool_mint_pubkey, false),
         AccountMeta::new(*destination_pubkey, false),
+        AccountMeta::new(*deposit_authority, true),
         AccountMeta::new_readonly(*token_program_id, false),
     ];
 

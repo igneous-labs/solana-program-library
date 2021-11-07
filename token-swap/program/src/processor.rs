@@ -163,6 +163,7 @@ impl Processor {
         user_token_a_info: Option<&AccountInfo>,
         user_token_b_info: Option<&AccountInfo>,
         pool_fee_account_info: Option<&AccountInfo>,
+        depoist_authority_info: Option<&AccountInfo>,
     ) -> ProgramResult {
         if swap_account_info.owner != program_id {
             return Err(ProgramError::IncorrectProgramId);
@@ -199,6 +200,16 @@ impl Processor {
                 return Err(SwapError::IncorrectFeeAccount.into());
             }
         }
+
+        if let Some(deposit_authority) = depoist_authority_info {
+            if *deposit_authority.key != *token_swap.deposity_authority() {
+                return Err(SwapError::InvalidDepositAuthority.into());
+            }
+            if !deposit_authority.is_signer {
+                return Err(SwapError::DepositAuthorityNotSigner.into());
+            }
+        }
+
         Ok(())
     }
 
@@ -518,6 +529,7 @@ impl Processor {
         let token_b_info = next_account_info(account_info_iter)?;
         let pool_mint_info = next_account_info(account_info_iter)?;
         let dest_info = next_account_info(account_info_iter)?;
+        let deposit_authority = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
 
         let token_swap = SwapVersion::unpack(&swap_info.data.borrow())?;
@@ -537,6 +549,7 @@ impl Processor {
             Some(source_a_info),
             Some(source_b_info),
             None,
+            Some(deposit_authority),
         )?;
 
         let token_a = Self::unpack_token_account(token_a_info, token_swap.token_program_id())?;
@@ -640,6 +653,7 @@ impl Processor {
             Some(dest_token_a_info),
             Some(dest_token_b_info),
             Some(pool_fee_account_info),
+            None,
         )?;
 
         let token_a = Self::unpack_token_account(token_a_info, token_swap.token_program_id())?;
@@ -784,6 +798,7 @@ impl Processor {
             source_a_info,
             source_b_info,
             None,
+            None, //TODO: implement authority check for deposit single
         )?;
 
         let pool_mint = Self::unpack_mint(pool_mint_info, token_swap.token_program_id())?;
@@ -900,6 +915,7 @@ impl Processor {
             destination_a_info,
             destination_b_info,
             Some(pool_fee_account_info),
+            None,
         )?;
 
         let pool_mint = Self::unpack_mint(pool_mint_info, token_swap.token_program_id())?;
@@ -1237,6 +1253,7 @@ mod tests {
         authority_key: Pubkey,
         deposit_authority: Pubkey,
         deposit_authority_account: Account,
+        deposit_authority_is_signer: bool,
         fees: Fees,
         swap_curve: SwapCurve,
         swap_key: Pubkey,
@@ -1317,6 +1334,7 @@ mod tests {
                 authority_key,
                 deposit_authority,
                 deposit_authority_account,
+                deposit_authority_is_signer: true,
                 fees,
                 swap_curve,
                 swap_key,
@@ -1559,26 +1577,31 @@ mod tests {
             )
             .unwrap();
 
+            let mut deposit_instruction = deposit_all_token_types(
+                &SWAP_PROGRAM_ID,
+                &spl_token::id(),
+                &self.swap_key,
+                &self.authority_key,
+                &user_transfer_authority,
+                depositor_token_a_key,
+                depositor_token_b_key,
+                &self.token_a_key,
+                &self.token_b_key,
+                &self.pool_mint_key,
+                depositor_pool_key,
+                &self.deposit_authority,
+                DepositAllTokenTypes {
+                    pool_token_amount,
+                    maximum_token_a_amount,
+                    maximum_token_b_amount,
+                },
+            )
+            .unwrap();
+            if let Some(deposity_authority_meta) = deposit_instruction.accounts.get_mut(9) {
+                deposity_authority_meta.is_signer = self.deposit_authority_is_signer;
+            }
             do_process_instruction(
-                deposit_all_token_types(
-                    &SWAP_PROGRAM_ID,
-                    &spl_token::id(),
-                    &self.swap_key,
-                    &self.authority_key,
-                    &user_transfer_authority,
-                    depositor_token_a_key,
-                    depositor_token_b_key,
-                    &self.token_a_key,
-                    &self.token_b_key,
-                    &self.pool_mint_key,
-                    depositor_pool_key,
-                    DepositAllTokenTypes {
-                        pool_token_amount,
-                        maximum_token_a_amount,
-                        maximum_token_b_amount,
-                    },
-                )
-                .unwrap(),
+                deposit_instruction,
                 vec![
                     &mut self.swap_account,
                     &mut Account::default(),
@@ -1589,6 +1612,7 @@ mod tests {
                     &mut self.token_b_account,
                     &mut self.pool_mint_account,
                     &mut depositor_pool_account,
+                    &mut self.deposit_authority_account,
                     &mut Account::default(),
                 ],
             )
@@ -2991,6 +3015,66 @@ mod tests {
             accounts.authority_key = old_authority;
         }
 
+        // Deposit authority doesn't match
+        {
+            let (
+                token_a_key,
+                mut token_a_account,
+                token_b_key,
+                mut token_b_account,
+                pool_key,
+                mut pool_account,
+            ) = accounts.setup_token_accounts(&user_key, &depositor_key, deposit_a, deposit_b, 0);
+            let original_deposit_authority = accounts.deposit_authority;
+            let wrong_deposit_authority = Pubkey::new_unique();
+            accounts.deposit_authority = wrong_deposit_authority;
+            assert_eq!(
+                Err(SwapError::InvalidDepositAuthority.into()),
+                accounts.deposit_all_token_types(
+                    &depositor_key,
+                    &token_a_key,
+                    &mut token_a_account,
+                    &token_b_key,
+                    &mut token_b_account,
+                    &pool_key,
+                    &mut pool_account,
+                    pool_amount.try_into().unwrap(),
+                    deposit_a,
+                    deposit_b,
+                )
+            );
+            accounts.deposit_authority = original_deposit_authority;
+        }
+
+        // Deposit authority isn't signer
+        {
+            accounts.deposit_authority_is_signer = false;
+            let (
+                token_a_key,
+                mut token_a_account,
+                token_b_key,
+                mut token_b_account,
+                pool_key,
+                mut pool_account,
+            ) = accounts.setup_token_accounts(&user_key, &depositor_key, deposit_a, deposit_b, 0);
+            assert_eq!(
+                Err(SwapError::DepositAuthorityNotSigner.into()),
+                accounts.deposit_all_token_types(
+                    &depositor_key,
+                    &token_a_key,
+                    &mut token_a_account,
+                    &token_b_key,
+                    &mut token_b_account,
+                    &pool_key,
+                    &mut pool_account,
+                    pool_amount.try_into().unwrap(),
+                    deposit_a,
+                    deposit_b,
+                )
+            );
+            accounts.deposit_authority_is_signer = true;
+        }
+
         // not enough token A
         {
             let (
@@ -3145,6 +3229,7 @@ mod tests {
                         &accounts.token_b_key,
                         &accounts.pool_mint_key,
                         &pool_key,
+                        &accounts.deposit_authority,
                         DepositAllTokenTypes {
                             pool_token_amount: pool_amount.try_into().unwrap(),
                             maximum_token_a_amount: deposit_a,
@@ -3162,6 +3247,7 @@ mod tests {
                         &mut accounts.token_b_account,
                         &mut accounts.pool_mint_account,
                         &mut pool_account,
+                        &mut accounts.deposit_authority_account,
                         &mut Account::default(),
                     ],
                 )
@@ -3194,6 +3280,7 @@ mod tests {
                         &accounts.token_b_key,
                         &accounts.pool_mint_key,
                         &pool_key,
+                        &accounts.deposit_authority,
                         DepositAllTokenTypes {
                             pool_token_amount: pool_amount.try_into().unwrap(),
                             maximum_token_a_amount: deposit_a,
@@ -3211,6 +3298,7 @@ mod tests {
                         &mut accounts.token_b_account,
                         &mut accounts.pool_mint_account,
                         &mut pool_account,
+                        &mut accounts.deposit_authority_account,
                         &mut Account::default(),
                     ],
                 )
