@@ -318,6 +318,7 @@ impl Processor {
             pool_fee_account: *fee_account_info.key,
             fees,
             swap_curve,
+            deposit_authority: Pubkey::new_unique(), //TODO: Properly init from initialize accounts
         });
         SwapVersion::pack(obj, &mut swap_info.data.borrow_mut())?;
         Ok(())
