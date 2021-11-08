@@ -22,8 +22,8 @@ deploy the program, allow others to create pools, and earn a "protocol fee" on
 all activity.
 
 Since Solana programs cannot contain any modifiable state, we must hard-code
-all constraints into the program.  `SwapConstraints` in `program/src/constraints.rs`
-contains all hard-coded fields for fees.  Additionally the
+all constraints into the program. `SwapConstraints` in `program/src/constraints.rs`
+contains all hard-coded fields for fees. Additionally the
 `SWAP_PROGRAM_OWNER_FEE_ADDRESS` environment variable specifies the public key
 that must own all fee accounts.
 
@@ -69,10 +69,33 @@ cargo hfuzz run-debug token-swap-instructions hfuzz_workspace/token-swap-instruc
 This command attaches a debugger to the test, allowing you to easily see the
 exact problem.
 
+#### Running Fuzz tests on OSX
+
+If you're developing on OSX or another platform that `honggfuzz` is incompatible with, the `Dockerfile` in the root directory can be used to copy the SPL libraries to a compatible docker container.
+
+Build the container (from the root directory):
+
+```sh
+docker build -t spl-fuzz .
+```
+
+Run the container:
+
+```sh
+  docker run -it --rm spl-fuzz
+```
+
+Run token-swap fuzz tests:
+
+```sh
+spl-fuzz# cd token-swap/program/fuzz
+spl-fuzz# cargo hfuzz run token-swap-instructions
+```
+
 ### Integration tests
 
 You can test the JavaScript bindings and on-chain interactions using
-`solana-test-validator`, included in the Solana Tool Suite.  See the
+`solana-test-validator`, included in the Solana Tool Suite. See the
 [CLI installation instructions](https://docs.solana.com/cli/install-solana-cli-tools).
 
 From `./js`, install the required modules:
