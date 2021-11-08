@@ -5,6 +5,7 @@ import * as BufferLayout from 'buffer-layout';
 import type {Connection, TransactionSignature} from '@solana/web3.js';
 import {
   Account,
+  Keypair,
   PublicKey,
   SystemProgram,
   Transaction,
@@ -75,6 +76,7 @@ export const TokenSwapLayout = BufferLayout.struct([
   Layout.uint64('hostFeeDenominator'),
   BufferLayout.u8('curveType'),
   BufferLayout.blob(32, 'curveParameters'),
+  Layout.publicKey('depositAuthority'),
 ]);
 
 export const CurveType = Object.freeze({
@@ -100,6 +102,7 @@ export class TokenSwap {
    * @param tokenAccountB The token swap's Token B account
    * @param mintA The mint of Token A
    * @param mintB The mint of Token B
+   * @param depositAuthority The keypair authorized to deposit into the pool
    * @param tradeFeeNumerator The trade fee numerator
    * @param tradeFeeDenominator The trade fee denominator
    * @param ownerTradeFeeNumerator The owner trade fee numerator
@@ -123,6 +126,7 @@ export class TokenSwap {
     public tokenAccountB: PublicKey,
     public mintA: PublicKey,
     public mintB: PublicKey,
+    public depositAuthority: Keypair,
     public tradeFeeNumerator: Numberu64,
     public tradeFeeDenominator: Numberu64,
     public ownerTradeFeeNumerator: Numberu64,
@@ -145,6 +149,7 @@ export class TokenSwap {
     this.tokenAccountB = tokenAccountB;
     this.mintA = mintA;
     this.mintB = mintB;
+    this.depositAuthority = depositAuthority;
     this.tradeFeeNumerator = tradeFeeNumerator;
     this.tradeFeeDenominator = tradeFeeDenominator;
     this.ownerTradeFeeNumerator = ownerTradeFeeNumerator;
@@ -178,6 +183,7 @@ export class TokenSwap {
     tokenPool: PublicKey,
     feeAccount: PublicKey,
     tokenAccountPool: PublicKey,
+    depositAuthority: Keypair,
     tokenProgramId: PublicKey,
     swapProgramId: PublicKey,
     tradeFeeNumerator: number,
@@ -199,6 +205,7 @@ export class TokenSwap {
       {pubkey: tokenPool, isSigner: false, isWritable: true},
       {pubkey: feeAccount, isSigner: false, isWritable: false},
       {pubkey: tokenAccountPool, isSigner: false, isWritable: true},
+      {pubkey: depositAuthority.publicKey, isSigner: true, isWritable: false},
       {pubkey: tokenProgramId, isSigner: false, isWritable: false},
     ];
     const commandDataLayout = BufferLayout.struct([
@@ -272,6 +279,7 @@ export class TokenSwap {
     const mintA = new PublicKey(tokenSwapData.mintA);
     const mintB = new PublicKey(tokenSwapData.mintB);
     const tokenProgramId = new PublicKey(tokenSwapData.tokenProgramId);
+    const depositAuthority = Keypair.generate();
 
     const tradeFeeNumerator = Numberu64.fromBuffer(
       tokenSwapData.tradeFeeNumerator,
@@ -311,6 +319,7 @@ export class TokenSwap {
       tokenAccountB,
       mintA,
       mintB,
+      depositAuthority,
       tradeFeeNumerator,
       tradeFeeDenominator,
       ownerTradeFeeNumerator,
@@ -335,6 +344,7 @@ export class TokenSwap {
    * @param tokenAccountB: The token swap's Token B account
    * @param poolToken The pool token
    * @param tokenAccountPool The token swap's pool token account
+   * @param depositAuthority The keypair authorized to deposit into the pool
    * @param tokenProgramId The program ID of the token program
    * @param swapProgramId The program ID of the token-swap program
    * @param feeNumerator Numerator of the fee ratio
@@ -353,6 +363,7 @@ export class TokenSwap {
     mintB: PublicKey,
     feeAccount: PublicKey,
     tokenAccountPool: PublicKey,
+    depositAuthority: Keypair,
     swapProgramId: PublicKey,
     tokenProgramId: PublicKey,
     tradeFeeNumerator: number,
@@ -379,6 +390,7 @@ export class TokenSwap {
       tokenAccountB,
       mintA,
       mintB,
+      depositAuthority,
       new Numberu64(tradeFeeNumerator),
       new Numberu64(tradeFeeDenominator),
       new Numberu64(ownerTradeFeeNumerator),
@@ -414,6 +426,7 @@ export class TokenSwap {
       poolToken,
       feeAccount,
       tokenAccountPool,
+      depositAuthority,
       tokenProgramId,
       swapProgramId,
       tradeFeeNumerator,
@@ -435,6 +448,7 @@ export class TokenSwap {
       transaction,
       payer,
       tokenSwapAccount,
+      new Account(depositAuthority.secretKey), //sendAndConfirmTransaction takes deprecated Account type
     );
 
     return tokenSwap;
@@ -548,6 +562,7 @@ export class TokenSwap {
    * @param userAccountB User account for token B
    * @param poolAccount User account for pool token
    * @param userTransferAuthority Account delegated to transfer user's tokens
+   * @param depositAuthority Keypair authorized to deposit into the pool
    * @param poolTokenAmount Amount of pool tokens to mint
    * @param maximumTokenA The maximum amount of token A to deposit
    * @param maximumTokenB The maximum amount of token B to deposit
@@ -557,6 +572,7 @@ export class TokenSwap {
     userAccountB: PublicKey,
     poolAccount: PublicKey,
     userTransferAuthority: Account,
+    depositAuthority: Keypair,
     poolTokenAmount: number | Numberu64,
     maximumTokenA: number | Numberu64,
     maximumTokenB: number | Numberu64,
@@ -575,6 +591,7 @@ export class TokenSwap {
           this.tokenAccountB,
           this.poolToken,
           poolAccount,
+          depositAuthority,
           this.swapProgramId,
           this.tokenProgramId,
           poolTokenAmount,
@@ -584,6 +601,7 @@ export class TokenSwap {
       ),
       this.payer,
       userTransferAuthority,
+      new Account(depositAuthority.secretKey),
     );
   }
 
@@ -597,6 +615,7 @@ export class TokenSwap {
     intoB: PublicKey,
     poolToken: PublicKey,
     poolAccount: PublicKey,
+    depositAuthority: Keypair,
     swapProgramId: PublicKey,
     tokenProgramId: PublicKey,
     poolTokenAmount: number | Numberu64,
@@ -631,6 +650,7 @@ export class TokenSwap {
       {pubkey: intoB, isSigner: false, isWritable: true},
       {pubkey: poolToken, isSigner: false, isWritable: true},
       {pubkey: poolAccount, isSigner: false, isWritable: true},
+      {pubkey: depositAuthority.publicKey, isSigner: true, isWritable: false},
       {pubkey: tokenProgramId, isSigner: false, isWritable: false},
     ];
     return new TransactionInstruction({
@@ -747,6 +767,7 @@ export class TokenSwap {
    * @param userAccount User account to deposit token A or B
    * @param poolAccount User account to receive pool tokens
    * @param userTransferAuthority Account delegated to transfer user's tokens
+   * @param depositAuthority Keypard authorized to depoist into the pool
    * @param sourceTokenAmount The amount of token A or B to deposit
    * @param minimumPoolTokenAmount Minimum amount of pool tokens to mint
    */
@@ -754,6 +775,7 @@ export class TokenSwap {
     userAccount: PublicKey,
     poolAccount: PublicKey,
     userTransferAuthority: Account,
+    depositAuthority: Keypair,
     sourceTokenAmount: number | Numberu64,
     minimumPoolTokenAmount: number | Numberu64,
   ): Promise<TransactionSignature> {
@@ -770,6 +792,7 @@ export class TokenSwap {
           this.tokenAccountB,
           this.poolToken,
           poolAccount,
+          depositAuthority,
           this.swapProgramId,
           this.tokenProgramId,
           sourceTokenAmount,
@@ -778,6 +801,7 @@ export class TokenSwap {
       ),
       this.payer,
       userTransferAuthority,
+      new Account(depositAuthority.secretKey),
     );
   }
 
@@ -790,6 +814,7 @@ export class TokenSwap {
     intoB: PublicKey,
     poolToken: PublicKey,
     poolAccount: PublicKey,
+    depositAuthority: Keypair,
     swapProgramId: PublicKey,
     tokenProgramId: PublicKey,
     sourceTokenAmount: number | Numberu64,
@@ -822,6 +847,7 @@ export class TokenSwap {
       {pubkey: intoB, isSigner: false, isWritable: true},
       {pubkey: poolToken, isSigner: false, isWritable: true},
       {pubkey: poolAccount, isSigner: false, isWritable: true},
+      {pubkey: depositAuthority.publicKey, isSigner: true, isWritable: false},
       {pubkey: tokenProgramId, isSigner: false, isWritable: false},
     ];
     return new TransactionInstruction({

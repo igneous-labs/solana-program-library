@@ -1,6 +1,7 @@
 import {
   Account,
   Connection,
+  Keypair,
   PublicKey,
   SystemProgram,
   Transaction,
@@ -32,6 +33,7 @@ let mintA: Token;
 let mintB: Token;
 let tokenAccountA: PublicKey;
 let tokenAccountB: PublicKey;
+let depositAuthority: Keypair;
 
 // Hard-coded fee address, for testing production mode
 const SWAP_PROGRAM_OWNER_FEE_ADDRESS =
@@ -94,6 +96,8 @@ export async function createTokenSwap(
   const payer = await newAccountWithLamports(connection, 1000000000);
   owner = await newAccountWithLamports(connection, 1000000000);
   const tokenSwapAccount = new Account();
+  depositAuthority = Keypair.generate();
+
 
   [authority, bumpSeed] = await PublicKey.findProgramAddress(
     [tokenSwapAccount.publicKey.toBuffer()],
@@ -159,6 +163,7 @@ export async function createTokenSwap(
     mintB.publicKey,
     feeAccount,
     tokenAccountPool,
+    depositAuthority,
     TOKEN_SWAP_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     TRADING_FEE_NUMERATOR,
@@ -259,6 +264,7 @@ export async function depositAllTokenTypes(): Promise<void> {
     userAccountB,
     newAccountPool,
     userTransferAuthority,
+    depositAuthority,
     POOL_TOKEN_AMOUNT,
     tokenA,
     tokenB,
@@ -546,6 +552,7 @@ export async function depositSingleTokenTypeExactAmountIn(): Promise<void> {
     userAccountA,
     newAccountPool,
     userTransferAuthority,
+    depositAuthority,
     depositAmount,
     poolTokenA,
   );
@@ -562,6 +569,7 @@ export async function depositSingleTokenTypeExactAmountIn(): Promise<void> {
     userAccountB,
     newAccountPool,
     userTransferAuthority,
+    depositAuthority,
     depositAmount,
     poolTokenB,
   );
