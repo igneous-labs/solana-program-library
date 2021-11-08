@@ -32,6 +32,7 @@ pub struct NativeTokenSwap {
     pub token_b_account: NativeAccountData,
     pub token_b_mint_account: NativeAccountData,
     pub token_program_account: NativeAccountData,
+    pub deposit_authority_account: NativeAccountData,
 }
 
 pub fn create_program_account(program_id: Pubkey) -> NativeAccountData {
@@ -75,8 +76,8 @@ impl NativeTokenSwap {
             &authority_account.key,
             token_b_amount,
         );
-        let mut deposit_authority = NativeAccountData::new(0, system_program::id());
-        deposit_authority.is_signer = true;
+        let mut deposit_authority_account = NativeAccountData::new(0, system_program::id());
+        deposit_authority_account.is_signer = true;
 
         let init_instruction = instruction::initialize(
             &spl_token_swap::id(),
@@ -88,7 +89,7 @@ impl NativeTokenSwap {
             &pool_mint_account.key,
             &pool_fee_account.key,
             &pool_token_account.key,
-            &deposit_authority.key,
+            &deposit_authority_account.key,
             fees.clone(),
             swap_curve.clone(),
         )
@@ -104,7 +105,7 @@ impl NativeTokenSwap {
                 pool_mint_account.as_account_info(),
                 pool_fee_account.as_account_info(),
                 pool_token_account.as_account_info(),
-                deposit_authority.as_account_info(),
+                deposit_authority_account.as_account_info(),
                 token_program_account.as_account_info(),
             ],
         )
@@ -125,6 +126,7 @@ impl NativeTokenSwap {
             token_b_account,
             token_b_mint_account,
             token_program_account,
+            deposit_authority_account,
         }
     }
 
@@ -279,9 +281,6 @@ impl NativeTokenSwap {
         let mut user_transfer_account = NativeAccountData::new(0, system_program::id());
         user_transfer_account.is_signer = true;
 
-        let mut deposit_authority = NativeAccountData::new(0, system_program::id());
-        deposit_authority.is_signer = true;
-
         do_process_instruction(
             approve(
                 &self.token_program_account.key,
@@ -336,7 +335,7 @@ impl NativeTokenSwap {
             &self.token_b_account.key,
             &self.pool_mint_account.key,
             &pool_account.key,
-            &deposit_authority.key,
+            &self.deposit_authority_account.key,
             instruction,
         )
         .unwrap();
@@ -353,7 +352,7 @@ impl NativeTokenSwap {
                 self.token_b_account.as_account_info(),
                 self.pool_mint_account.as_account_info(),
                 pool_account.as_account_info(),
-                deposit_authority.as_account_info(),
+                self.deposit_authority_account.as_account_info(),
                 self.token_program_account.as_account_info(),
             ],
         )
@@ -435,8 +434,6 @@ impl NativeTokenSwap {
     ) -> ProgramResult {
         let mut user_transfer_account = NativeAccountData::new(0, system_program::id());
         user_transfer_account.is_signer = true;
-        let mut deposit_authority = NativeAccountData::new(0, system_program::id());
-        deposit_authority.is_signer = true;
         do_process_instruction(
             approve(
                 &self.token_program_account.key,
@@ -472,7 +469,7 @@ impl NativeTokenSwap {
             &self.token_b_account.key,
             &self.pool_mint_account.key,
             &pool_account.key,
-            &deposit_authority.key,
+            &self.deposit_authority_account.key,
             instruction,
         )
         .unwrap();
@@ -488,7 +485,7 @@ impl NativeTokenSwap {
                 self.token_b_account.as_account_info(),
                 self.pool_mint_account.as_account_info(),
                 pool_account.as_account_info(),
-                deposit_authority.as_account_info(),
+                self.deposit_authority_account.as_account_info(),
                 self.token_program_account.as_account_info(),
             ],
         )
