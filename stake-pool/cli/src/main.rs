@@ -271,7 +271,7 @@ fn command_create_pool(
         + stake_pool_account_lamports
         + validator_list_balance;
 
-    let default_decimals = spl_token::native_mint::DECIMALS;
+    // let default_decimals = spl_token::native_mint::DECIMALS;
 
     // Calculate withdraw authority used for minting pool tokens
     let (withdraw_authority, _) = find_withdraw_authority_program_address(
@@ -300,6 +300,7 @@ fn command_create_pool(
             },
             &stake::state::Lockup::default(),
         ),
+        /*
         // Account for the stake pool mint
         system_instruction::create_account(
             &config.fee_payer.pubkey(),
@@ -316,6 +317,7 @@ fn command_create_pool(
             None,
             default_decimals,
         )?,
+        */
     ];
 
     let pool_fee_account = add_associated_token_account(
@@ -335,6 +337,15 @@ fn command_create_pool(
     );
     let initialize_message = Message::new_with_blockhash(
         &[
+            // Transfer mint authority to stake pool
+            spl_token::instruction::set_authority(
+                &spl_token::id(),
+                &mint_keypair.pubkey(),
+                Some(&withdraw_authority),
+                spl_token::instruction::AuthorityType::MintTokens,
+                &config.fee_payer.pubkey(),
+                &[]
+            )?,
             // Validator stake account list storage
             system_instruction::create_account(
                 &config.fee_payer.pubkey(),
@@ -380,7 +391,11 @@ fn command_create_pool(
             + config.rpc_client.get_fee_for_message(&setup_message)?
             + config.rpc_client.get_fee_for_message(&initialize_message)?,
     )?;
-    let mut setup_signers = vec![config.fee_payer.as_ref(), &mint_keypair, &reserve_keypair];
+    let mut setup_signers = vec![
+        config.fee_payer.as_ref(),
+        // &mint_keypair,
+        &reserve_keypair,
+    ];
     unique_signers!(setup_signers);
     let setup_transaction = Transaction::new(&setup_signers, setup_message, recent_blockhash);
     let mut initialize_signers = vec![
