@@ -2696,15 +2696,15 @@ fn main() -> Result<(), Error> {
                 config.signer_or_default(arg_matches, "authority", &mut wallet_manager);
             bulk_signers.push(authority_signer);
 
-            let new_authority =
-                pubkey_of_signer(arg_matches, "new_authority", &mut wallet_manager).unwrap();
+            /*let new_authority =
+                pubkey_of_signer(arg_matches, "new_authority", &mut wallet_manager).unwrap();*/
             let force_authorize = arg_matches.is_present("force");
             command_authorize(
                 &config,
                 address,
                 authority_type,
                 authority,
-                new_authority,
+                None,
                 force_authorize,
                 bulk_signers,
             )
