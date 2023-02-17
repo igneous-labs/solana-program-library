@@ -13,7 +13,7 @@ use {
         },
         AUTHORITY_DEPOSIT, AUTHORITY_WITHDRAW, MINIMUM_ACTIVE_STAKE, TRANSIENT_STAKE_SEED,
     },
-    borsh::{BorshDeserialize, BorshSerialize},
+    borsh::BorshDeserialize,
     num_traits::FromPrimitive,
     solana_program::{
         account_info::next_account_info,
@@ -646,8 +646,10 @@ impl Processor {
             msg!("Reserve stake account not in intialized state");
             return Err(StakePoolError::WrongStakeState.into());
         };
-
-        validator_list.serialize(&mut *validator_list_info.data.borrow_mut())?;
+        borsh::to_writer(
+            &mut validator_list_info.data.borrow_mut()[..],
+            &validator_list,
+        )?;
 
         stake_pool.account_type = AccountType::StakePool;
         stake_pool.manager = *manager_info.key;
@@ -671,8 +673,7 @@ impl Processor {
         stake_pool.stake_referral_fee = stake_referral_fee;
         stake_pool.sol_deposit_authority = None;
 
-        stake_pool
-            .serialize(&mut *stake_pool_info.data.borrow_mut())
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)
             .map_err(|e| e.into())
     }
 
@@ -1020,7 +1021,7 @@ impl Processor {
         if stake_pool.preferred_withdraw_validator_vote_address == Some(vote_account_address) {
             stake_pool.preferred_withdraw_validator_vote_address = None;
         }
-        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)?;
 
         Ok(())
     }
@@ -1365,7 +1366,7 @@ impl Processor {
                 stake_pool.preferred_withdraw_validator_vote_address = vote_account_address
             }
         };
-        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)?;
         Ok(())
     }
 
@@ -1726,7 +1727,7 @@ impl Processor {
         let pool_mint = Mint::unpack_from_slice(&pool_mint_info.data.borrow())?;
         stake_pool.pool_token_supply = pool_mint.supply;
 
-        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)?;
 
         Ok(())
     }
@@ -2042,7 +2043,7 @@ impl Processor {
             .total_stake_lamports
             .checked_add(all_deposit_lamports)
             .ok_or(StakePoolError::CalculationFailure)?;
-        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)?;
 
         validator_stake_info.active_stake_lamports = post_validator_stake
             .delegation
@@ -2190,7 +2191,7 @@ impl Processor {
             .total_stake_lamports
             .checked_add(deposit_lamports)
             .ok_or(StakePoolError::CalculationFailure)?;
-        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)?;
 
         Ok(())
     }
@@ -2412,7 +2413,7 @@ impl Processor {
             .total_stake_lamports
             .checked_sub(withdraw_lamports)
             .ok_or(StakePoolError::CalculationFailure)?;
-        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)?;
 
         if let Some((validator_list_item, withdrawing_from_transient_stake_account)) =
             validator_list_item_info
@@ -2463,7 +2464,7 @@ impl Processor {
 
         stake_pool.manager = *new_manager_info.key;
         stake_pool.manager_fee_account = *new_manager_fee_info.key;
-        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)?;
         Ok(())
     }
 
@@ -2495,7 +2496,7 @@ impl Processor {
         fee.check_withdrawal(&stake_pool.withdrawal_fee)?;
 
         stake_pool.update_fee(&fee);
-        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)?;
         Ok(())
     }
 
@@ -2518,7 +2519,7 @@ impl Processor {
             return Err(StakePoolError::SignatureMissing.into());
         }
         stake_pool.staker = *new_staker_info.key;
-        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)?;
         Ok(())
     }
 
@@ -2550,7 +2551,7 @@ impl Processor {
             }
             DepositType::Sol => stake_pool.sol_deposit_authority = new_sol_deposit_authority,
         }
-        stake_pool.serialize(&mut *stake_pool_info.data.borrow_mut())?;
+        borsh::to_writer(&mut stake_pool_info.data.borrow_mut()[..], &stake_pool)?;
         Ok(())
     }
 

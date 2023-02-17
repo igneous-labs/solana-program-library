@@ -551,7 +551,7 @@ impl Pack for ValidatorStakeInfo {
     const LEN: usize = 73;
     fn pack_into_slice(&self, data: &mut [u8]) {
         let mut data = data;
-        self.serialize(&mut data).unwrap();
+        borsh::to_writer(&mut data, &self).unwrap();
     }
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
         let unpacked = Self::try_from_slice(src)?;
@@ -825,7 +825,7 @@ mod test {
         let stake_list = uninitialized_validator_list();
         let mut byte_vec = vec![0u8; size];
         let mut bytes = byte_vec.as_mut_slice();
-        stake_list.serialize(&mut bytes).unwrap();
+        borsh::to_writer(&mut bytes, &stake_list).unwrap();
         let stake_list_unpacked = try_from_slice_unchecked::<ValidatorList>(&byte_vec).unwrap();
         assert_eq!(stake_list_unpacked, stake_list);
 
@@ -839,7 +839,7 @@ mod test {
         };
         let mut byte_vec = vec![0u8; size];
         let mut bytes = byte_vec.as_mut_slice();
-        stake_list.serialize(&mut bytes).unwrap();
+        borsh::to_writer(&mut bytes, &stake_list).unwrap();
         let stake_list_unpacked = try_from_slice_unchecked::<ValidatorList>(&byte_vec).unwrap();
         assert_eq!(stake_list_unpacked, stake_list);
 
@@ -847,7 +847,7 @@ mod test {
         let stake_list = test_validator_list(max_validators);
         let mut byte_vec = vec![0u8; size];
         let mut bytes = byte_vec.as_mut_slice();
-        stake_list.serialize(&mut bytes).unwrap();
+        borsh::to_writer(&mut bytes, &stake_list).unwrap();
         let stake_list_unpacked = try_from_slice_unchecked::<ValidatorList>(&byte_vec).unwrap();
         assert_eq!(stake_list_unpacked, stake_list);
     }

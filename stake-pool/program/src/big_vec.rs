@@ -2,7 +2,7 @@
 
 use {
     arrayref::array_ref,
-    borsh::{BorshDeserialize, BorshSerialize},
+    borsh::BorshDeserialize,
     solana_program::{
         program_error::ProgramError, program_memory::sol_memmove, program_pack::Pack,
     },
@@ -78,7 +78,7 @@ impl<'data> BigVec<'data> {
         }
 
         let mut vec_len_ref = &mut self.data[0..VEC_SIZE_BYTES];
-        vec_len.serialize(&mut vec_len_ref)?;
+        borsh::to_writer(&mut vec_len_ref, &vec_len)?;
 
         Ok(())
     }
@@ -112,7 +112,7 @@ impl<'data> BigVec<'data> {
         let end_index = start_index + T::LEN;
 
         vec_len += 1;
-        vec_len.serialize(&mut vec_len_ref)?;
+        borsh::to_writer(&mut vec_len_ref, &vec_len)?;
 
         if self.data.len() < end_index {
             return Err(ProgramError::AccountDataTooSmall);
@@ -255,7 +255,7 @@ mod tests {
         const LEN: usize = 8;
         fn pack_into_slice(&self, data: &mut [u8]) {
             let mut data = data;
-            self.value.serialize(&mut data).unwrap();
+            borsh::to_writer(&mut data, &self.value).unwrap();
         }
         fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
             Ok(TestStruct {
